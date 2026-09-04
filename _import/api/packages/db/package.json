@@ -1,0 +1,32 @@
+{
+  "name": "@dio-sys-be/db",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./schema": {
+      "default": "./src/schema/index.ts"
+    }
+  },
+  "scripts": {
+    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate",
+    "db:studio": "drizzle-kit studio",
+    "db:migrate": "tsx src/migrate.ts",
+    "db:seed": "tsx src/seed.ts"
+  },
+  "dependencies": {
+    "@dio-sys-be/env": "*",
+    "@neondatabase/serverless": "^1.0.2",
+    "dotenv": "^17.2.2",
+    "drizzle-orm": "^0.45.1",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@dio-sys-be/config": "*",
+    "drizzle-kit": "^0.31.8",
+    "tsx": "^4.19.2",
+    "typescript": "^6"
+  }
+}

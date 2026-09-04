@@ -1,0 +1,31 @@
+{
+  "name": "dio-sys-be",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "npm run dev --workspaces",
+    "build": "npm run build --workspaces --if-present",
+    "check-types": "npm run check-types --workspaces",
+    "dev:server": "npm run dev --workspace server",
+    "db:push": "npm run db:push --workspace @dio-sys-be/db",
+    "db:studio": "npm run db:studio --workspace @dio-sys-be/db",
+    "db:generate": "npm run db:generate --workspace @dio-sys-be/db",
+    "db:migrate": "npm run db:migrate --workspace @dio-sys-be/db",
+    "db:seed": "npm run db:seed --workspace @dio-sys-be/db"
+  },
+  "dependencies": {
+    "@dio-sys-be/env": "*",
+    "dotenv": "^17.2.2",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@dio-sys-be/config": "*",
+    "@types/node": "^22.13.14",
+    "typescript": "^6"
+  },
+  "packageManager": "npm@10.9.2"
+}

@@ -1,0 +1,87 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build outputs
+dist
+build
+*.tsbuildinfo
+
+# Environment variables
+.env
+.env*.local
+
+# IDEs and editors
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Turbo
+.turbo
+.nx
+
+# Better-T-Stack
+.alchemy
+
+# Testing
+coverage
+.nyc_output
+
+# Misc
+*.tgz
+.cache
+tmp
+temp
+.windsurf
+IMPLEMENTATION_SUMMARY.md
+SETUP.md
+GLOBAL_MANAGEMENT_SUMMARY.md
+MENU_CATEGORY_SUMMARY.md
+TENANT_SCOPE_SUMMARY.md
+
+.vercel
+.claude
+
+API_BASED_PERMISSIONS_FIX.md
+COMPLETE_PERMISSION_IMPLEMENTATION.md
+COMPLETE_SYSTEM_CONTEXT.md
+DYNAMIC_PERMISSIONS_FIX.md
+NULLABLE_TENANT_MIGRATION.md
+OPTIONAL_TABLE_IMPLEMENTATION.md
+PERMISSION_MANAGEMENT_IMPLEMENTATION.md
+PERMISSION_MIDDLEWARE_REFACTOR.md
+PERMISSION_QUICK_REFERENCE.md
+PERMISSION_REFACTOR_COMPLETE.md
+PERMISSION_SHOW_HIDE_FIX.md
+PERMISSION_SYSTEM_GUIDE.md
+RBAC_TENANT_IMPLEMENTATION.md
+REFRESH_TOKEN_IMPLEMENTATION.md
+REGISTRATION_PERMISSION_FIX.md
+ROLE_PERMISSION_DISPLAY_FIX.md
+ROLE_PERMISSION_FIX.md
+SYSTEM_CONTEXT.md
+TENANT_AWARE_CREATION.md
+TENANT_FILTER_IMPLEMENTATION.md
+TENANT_ROLE_MANAGEMENT.md
+PERMISSION_LIST_ACCESS_UPDATE.md
+FORM_DROPDOWN_TENANT_FILTER_FIX.md
+OPTIONAL_CUSTOMER_FIX.md
+TENANT_FILTER_FIX.md
+TENANT_SCOPE_ACCESS_FIX.md
