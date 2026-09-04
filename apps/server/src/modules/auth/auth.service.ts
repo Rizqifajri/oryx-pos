@@ -166,9 +166,10 @@ export const login = async (input: LoginInput) => {
     .setExpirationTime(env.JWT_REFRESH_EXPIRES_IN)
     .sign(refreshSecret);
 
+  const hashedRefreshToken = await bcrypt.hash(refreshToken, 12);
   await authRepo.updateUserRefreshToken(
     user.id,
-    refreshToken,
+    hashedRefreshToken,
     parseExpiresIn(env.JWT_REFRESH_EXPIRES_IN),
   );
 
@@ -197,8 +198,15 @@ export const refreshAccessToken = async (input: RefreshTokenInput) => {
   const tenantId = payload.tenantId as string | null;
 
   // Validate token against DB — catches revoked tokens
-  const storedUser = await authRepo.findUserByRefreshToken(input.refreshToken);
-  if (!storedUser || storedUser.id !== userId) {
+  const storedUser = await authRepo.findUserById(userId);
+  if (!storedUser || !storedUser.refreshToken) {
+    throw new AppError("Refresh token has been revoked", 401);
+  }
+  const refreshTokenMatches = await bcrypt.compare(
+    input.refreshToken,
+    storedUser.refreshToken,
+  );
+  if (!refreshTokenMatches) {
     throw new AppError("Refresh token has been revoked", 401);
   }
 
@@ -252,9 +260,10 @@ export const refreshAccessToken = async (input: RefreshTokenInput) => {
     .setExpirationTime(env.JWT_REFRESH_EXPIRES_IN)
     .sign(newRefreshSecret);
 
+  const hashedNewRefreshToken = await bcrypt.hash(newRefreshToken, 12);
   await authRepo.updateUserRefreshToken(
     storedUser.id,
-    newRefreshToken,
+    hashedNewRefreshToken,
     parseExpiresIn(env.JWT_REFRESH_EXPIRES_IN),
   );
 

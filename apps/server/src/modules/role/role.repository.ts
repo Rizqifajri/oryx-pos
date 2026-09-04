@@ -62,20 +62,26 @@ export const findRoleById = async (id: string) => {
   };
 };
 
-export const createRole = async (data: {
-  tenantId: string;
-  name: string;
-  scope: "GLOBAL" | "TENANT";
-}) => {
-  const result = await db.insert(roles).values(data).returning();
+export const createRole = async (
+  data: {
+    tenantId: string;
+    name: string;
+    scope: "GLOBAL" | "TENANT";
+  },
+  tx?: any,
+) => {
+  const dbInstance = tx || db;
+  const result = await dbInstance.insert(roles).values(data).returning();
   return result[0];
 };
 
 export const updateRole = async (
   id: string,
   data: { name?: string; scope?: "GLOBAL" | "TENANT" },
+  tx?: any,
 ) => {
-  const result = await db
+  const dbInstance = tx || db;
+  const result = await dbInstance
     .update(roles)
     .set(data)
     .where(eq(roles.id, id))

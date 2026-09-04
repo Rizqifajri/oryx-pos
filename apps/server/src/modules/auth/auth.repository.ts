@@ -125,15 +125,6 @@ export const updateUserRefreshToken = async (
   return user;
 };
 
-export const findUserByRefreshToken = async (refreshToken: string) => {
-  const result = await db
-    .select()
-    .from(users)
-    .where(eq(users.refreshToken, refreshToken))
-    .limit(1);
-  return result[0] ?? null;
-};
-
 export const clearUserRefreshToken = async (userId: string) => {
   await db
     .update(users)

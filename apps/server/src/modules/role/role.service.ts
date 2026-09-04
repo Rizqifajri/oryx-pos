@@ -108,11 +108,14 @@ export const createRole = async (ctx: UserContext, input: CreateRoleInput) => {
   }
 
   return await db.transaction(async (tx) => {
-    const role = await roleRepo.createRole({
-      tenantId: input.tenantId as string,
-      name: input.name,
-      scope: input.scope,
-    });
+    const role = await roleRepo.createRole(
+      {
+        tenantId: input.tenantId as string,
+        name: input.name,
+        scope: input.scope,
+      },
+      tx,
+    );
 
     if (input.permissionIds.length > 0) {
       await roleRepo.syncRolePermissions(role!.id, input.permissionIds, tx);
@@ -160,10 +163,14 @@ export const updateRole = async (
   }
 
   return await db.transaction(async (tx) => {
-    const updated = await roleRepo.updateRole(id, {
-      name: input.name,
-      scope: input.scope,
-    });
+    const updated = await roleRepo.updateRole(
+      id,
+      {
+        name: input.name,
+        scope: input.scope,
+      },
+      tx,
+    );
 
     if (input.permissionIds) {
       await roleRepo.syncRolePermissions(id, input.permissionIds, tx);

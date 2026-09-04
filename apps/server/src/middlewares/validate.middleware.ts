@@ -7,19 +7,14 @@ export const validate =
   (req, _res, next) => {
     try {
       req.body = schema.parse(req.body);
-
-      console.log({ LoginBody: req.body });
       next();
     } catch (error: any) {
-      if (error.errors) {
-        const message = error.errors
+      if (error.issues) {
+        const message = error.issues
           .map((err: any) => `${err.path.join(".")}: ${err.message}`)
           .join(", ");
-        console.error("Validation error:", message);
-        console.error("Request body:", req.body);
         throw new AppError(message, 400);
       }
-      console.error("Validation failed:", error);
       throw new AppError("Validation failed", 400);
     }
   };
