@@ -23,6 +23,10 @@ const defaultPermissions = [
   "tenant:delete",
   "tenant:manage",
 
+  // Tenant self-service (TENANT scope — managing your OWN tenant, distinct
+  // from tenant:manage which governs managing ARBITRARY tenants by id)
+  "tenant:manage-own",
+
   // Role permissions
   "role:list",
   "role:view",

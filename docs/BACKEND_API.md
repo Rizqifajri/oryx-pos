@@ -210,7 +210,7 @@ Invalidate the current refresh token server-side.
 
 ### Update My Tenant
 
-**Endpoint:** `PATCH /tenants/me` — **Auth:** Required (both scopes) | **Permission:** `tenant:manage`
+**Endpoint:** `PATCH /tenants/me` — **Auth:** Required (both scopes) | **Permission:** `tenant:manage-own` (TENANT scope) — distinct from `tenant:manage`, which governs GLOBAL-scope management of arbitrary tenants by id and can never be held by a TENANT-scoped role
 
 **Request Body:**
 
@@ -227,7 +227,7 @@ Invalidate the current refresh token server-side.
 
 ### Delete My Tenant
 
-**Endpoint:** `DELETE /tenants/me` — **Auth:** Required (both scopes) | **Permission:** `tenant:manage`
+**Endpoint:** `DELETE /tenants/me` — **Auth:** Required (both scopes) | **Permission:** `tenant:manage-own` (TENANT scope) — distinct from `tenant:manage`, which governs GLOBAL-scope management of arbitrary tenants by id and can never be held by a TENANT-scoped role
 
 ### Delete Tenant by ID
 

@@ -43,7 +43,7 @@ router.post(
 router.patch(
   "/me",
   requireAuth,
-  // requirePermission("tenant:manage", "tenant:update"),
+  requirePermission("tenant:manage-own"),
   validate(updateTenantSchema),
   asyncHandler(tenantController.updateMyTenant),
 );
@@ -60,7 +60,7 @@ router.patch(
 router.delete(
   "/me",
   requireAuth,
-  // requirePermission("tenant:manage", "tenant:delete"),
+  requirePermission("tenant:manage-own"),
   asyncHandler(tenantController.deleteMyTenant),
 );
 
