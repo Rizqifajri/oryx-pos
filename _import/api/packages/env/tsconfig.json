@@ -1,3 +1,0 @@
-{
-  "extends": "@dio-sys-be/config/tsconfig.base.json"
-}
