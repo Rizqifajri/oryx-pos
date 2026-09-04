@@ -20,9 +20,7 @@ function isPublicRoute(pathname: string): boolean {
  */
 async function verifyToken(token: string): Promise<boolean> {
   try {
-    const secret = new TextEncoder().encode(
-      process.env.NEXT_PUBLIC_JWT_SECRET ?? process.env.JWT_SECRET ?? "",
-    );
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET ?? "");
     await jwtVerify(token, secret);
     return true;
   } catch {

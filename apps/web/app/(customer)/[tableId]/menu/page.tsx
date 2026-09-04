@@ -51,7 +51,7 @@ export default function PublicMenuPage() {
       style: "currency",
       currency: "IDR",
       minimumFractionDigits: 0,
-    }).format(cents)
+    }).format(cents / 100)
   }
 
   function handleCheckout() {

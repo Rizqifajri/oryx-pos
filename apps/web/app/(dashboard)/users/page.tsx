@@ -4,7 +4,10 @@ import { UsersPage } from "@/features/user/pages/users"
 
 export default function Page() {
   return (
-    <RequirePermission permissions={[PERMISSIONS.USER_VIEW, PERMISSIONS.USER_MANAGE]}>
+    <RequirePermission
+      permissions={[PERMISSIONS.USER_VIEW, PERMISSIONS.USER_MANAGE]}
+      requireAll={false}
+    >
       <UsersPage />
     </RequirePermission>
   )
