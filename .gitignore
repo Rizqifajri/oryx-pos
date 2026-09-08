@@ -52,9 +52,6 @@ lerna-debug.log*
 coverage
 .nyc_output
 
-# User-uploaded menu images (local dev only)
-apps/web/public/uploads/menus/*
-
 # Misc
 *.tgz
 .cache

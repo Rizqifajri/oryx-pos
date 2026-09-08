@@ -138,6 +138,7 @@ export const createOrderWithItems = async (
     tableId: string | null;
     customerId?: string | null;
     totalPrice: number;
+    status?: OrderStatus;
   },
   items: (OrderItemInput & { price: number })[],
   tx: Transaction,
@@ -149,7 +150,7 @@ export const createOrderWithItems = async (
       tableId: orderData.tableId,
       customerId: orderData.customerId ?? null,
       totalPrice: orderData.totalPrice,
-      status: "NEW",
+      status: orderData.status ?? "NEW",
     })
     .returning();
 

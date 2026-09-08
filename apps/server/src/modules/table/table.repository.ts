@@ -3,6 +3,8 @@ import { tables } from "@dio-sys-be/db/schema";
 import { and, eq } from "drizzle-orm";
 import type { TableStatus } from "./table.schema";
 
+type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 export const findAllTables = async () => {
   return await db.select().from(tables);
 };
@@ -50,8 +52,9 @@ export const updateTable = async (
     capacity?: number;
     status?: TableStatus;
   },
+  tx: DbOrTx = db,
 ) => {
-  const result = await db
+  const result = await tx
     .update(tables)
     .set(data)
     .where(eq(tables.id, id))

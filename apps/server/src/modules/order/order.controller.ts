@@ -3,6 +3,7 @@ import * as orderService from "./order.service";
 import type {
   CreateOrderInput,
   OrderStatus,
+  PosCheckoutInput,
   PublicCreateOrderInput,
   UpdateOrderStatusInput,
 } from "./order.schema";
@@ -43,6 +44,15 @@ export const createOrder: RequestHandler<
   CreateOrderInput
 > = async (req, res) => {
   const data = await orderService.createOrder(req.user!, req.body);
+  res.status(201).json({ success: true, data });
+};
+
+export const posCheckout: RequestHandler<
+  object,
+  object,
+  PosCheckoutInput
+> = async (req, res) => {
+  const data = await orderService.createPosCheckout(req.user!, req.body);
   res.status(201).json({ success: true, data });
 };
 

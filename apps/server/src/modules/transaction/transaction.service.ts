@@ -1,6 +1,8 @@
 import type { UserContext } from "@/types/user-context";
 import { AppError } from "@/utils/app-error";
 import { assertTenantMatch } from "@/utils/assert-permission";
+import { computePriceBreakdown } from "@/utils/pricing";
+import { db } from "@dio-sys-be/db";
 import * as orderRepo from "../order/order.repository";
 import * as tableRepo from "../table/table.repository";
 import * as transactionRepo from "./transaction.repository";
@@ -77,19 +79,33 @@ export const createTransaction = async (
     throw new AppError("A transaction already exists for this order", 409);
   }
 
-  const transaction = await transactionRepo.createTransaction({
-    tenantId: order.tenantId,
-    orderId: input.orderId,
-    totalAmount: order.totalPrice,
-    paymentMethod: input.paymentMethod,
+  // Tax and service are computed server-side from the order subtotal so the
+  // recorded amount is authoritative and can never be spoofed by the client.
+  const breakdown = computePriceBreakdown(order.totalPrice);
+
+  // Insert the transaction and free the table atomically — a failure between
+  // the two must not leave a paid order sitting on an occupied table.
+  return await db.transaction(async (tx) => {
+    const transaction = await transactionRepo.createTransaction(
+      {
+        tenantId: order.tenantId,
+        orderId: input.orderId,
+        subtotal: breakdown.subtotal,
+        taxAmount: breakdown.taxAmount,
+        serviceAmount: breakdown.serviceAmount,
+        totalAmount: breakdown.totalAmount,
+        paymentMethod: input.paymentMethod,
+      },
+      tx,
+    );
+
+    // Only update table status if order has a table assigned
+    if (order.tableId) {
+      await tableRepo.updateTable(order.tableId, { status: "AVAILABLE" }, tx);
+    }
+
+    return transaction;
   });
-
-  // Only update table status if order has a table assigned
-  if (order.tableId) {
-    await tableRepo.updateTable(order.tableId, { status: "AVAILABLE" });
-  }
-
-  return transaction;
 };
 
 export const deleteTransaction = async (ctx: UserContext, id: string) => {

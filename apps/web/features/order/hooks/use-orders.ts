@@ -37,6 +37,38 @@ export function useCreateOrder() {
   })
 }
 
+export interface PosCheckoutPayload extends CreateOrderPayload {
+  paymentMethod: string
+}
+
+export interface PosCheckoutResult extends Order {
+  transaction: {
+    id: string
+    subtotal: number
+    taxAmount: number
+    serviceAmount: number
+    totalAmount: number
+    paymentMethod: string
+  }
+}
+
+/**
+ * POS "Proses & Bayar": creates an already-COMPLETED order and records its
+ * payment (with server-computed tax/service) in a single request.
+ */
+export function usePosCheckout() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: PosCheckoutPayload) =>
+      api.post<PosCheckoutResult>("/orders/checkout", payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["orders"] })
+      qc.invalidateQueries({ queryKey: ["transactions"] })
+      qc.invalidateQueries({ queryKey: ["tables"] })
+    },
+  })
+}
+
 export function useUpdateOrderStatus() {
   const qc = useQueryClient()
   return useMutation({

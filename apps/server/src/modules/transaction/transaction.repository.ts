@@ -2,6 +2,8 @@ import { db } from "@dio-sys-be/db";
 import { transactions } from "@dio-sys-be/db/schema";
 import { eq } from "drizzle-orm";
 
+type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 export const findAllTransactions = async () => {
   return await db.select().from(transactions);
 };
@@ -31,13 +33,19 @@ export const findTransactionByOrderId = async (orderId: string) => {
   return result[0] || null;
 };
 
-export const createTransaction = async (data: {
-  tenantId: string;
-  orderId: string;
-  totalAmount: number;
-  paymentMethod: string;
-}) => {
-  const result = await db.insert(transactions).values(data).returning();
+export const createTransaction = async (
+  data: {
+    tenantId: string;
+    orderId: string;
+    subtotal: number;
+    taxAmount: number;
+    serviceAmount: number;
+    totalAmount: number;
+    paymentMethod: string;
+  },
+  tx: DbOrTx = db,
+) => {
+  const result = await tx.insert(transactions).values(data).returning();
   return result[0];
 };
 

@@ -12,6 +12,7 @@ import roleRoute from "./modules/role/role.routes";
 import tableRoute from "./modules/table/table.routes";
 import tenantRoute from "./modules/tenant/tenant.routes";
 import transactionRoute from "./modules/transaction/transaction.routes";
+import uploadRoute from "./modules/upload/upload.routes";
 import userRoute from "./modules/user/user.route";
 
 const app = express();
@@ -40,6 +41,7 @@ app.use("/api/v1/tables", tableRoute);
 app.use("/api/v1/customers", customerRoute);
 app.use("/api/v1/orders", orderRoute);
 app.use("/api/v1/transactions", transactionRoute);
+app.use("/api/v1/uploads", uploadRoute);
 
 app.use(errorHandler);
 

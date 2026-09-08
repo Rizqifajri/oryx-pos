@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useCart } from "@/features/cart/context/cart-context"
 import { usePosMenus, usePosTables } from "../hooks/use-pos"
-import { useCreateOrder } from "@/features/order/hooks/use-orders"
+import { usePosCheckout } from "@/features/order/hooks/use-orders"
 import { usePaymentCalculation } from "@/features/cart/hooks/use-payment-calculation"
 import { getStoredUser } from "@/features/auth/hooks/use-auth"
 import { Button } from "@/components/ui/button"
@@ -13,7 +13,7 @@ import { Plus, Minus, ShoppingCart, CheckCircle2, User, Armchair, CreditCard } f
 export function PosDashboard() {
   const { data: menus = [], isLoading: loadingMenus } = usePosMenus()
   const { data: tables = [], isLoading: loadingTables } = usePosTables()
-  const { mutateAsync: createOrder } = useCreateOrder()
+  const { mutateAsync: posCheckout } = usePosCheckout()
 
   const { items, addItem, updateQuantity, clear, total, itemCount } = useCart()
   const { tax, service, totalPayment } = usePaymentCalculation(total)
@@ -69,8 +69,9 @@ export function PosDashboard() {
         tableId: selectedTable || null,
         customerName: customerName.trim() || undefined,
         items: validItems,
+        paymentMethod,
       }
-      await createOrder(payload)
+      await posCheckout(payload)
       setIsSuccess(true)
       setTimeout(() => {
         clear()
@@ -91,8 +92,11 @@ export function PosDashboard() {
     return (
       <div className="flex h-full flex-col items-center justify-center p-8 text-center space-y-4">
         <CheckCircle2 className="h-16 w-16 text-green-500" />
-        <h2 className="text-2xl font-bold">Pesanan Berhasil!</h2>
-        <p className="text-muted-foreground">Pesanan atas nama {customerName} telah dikirim ke dapur.</p>
+        <h2 className="text-2xl font-bold">Pembayaran Berhasil!</h2>
+        <p className="text-muted-foreground">
+          Pesanan {customerName ? `atas nama ${customerName} ` : ""}telah dibayar
+          ({formatPrice(totalPayment)}) dan selesai.
+        </p>
       </div>
     )
   }

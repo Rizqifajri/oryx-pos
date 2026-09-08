@@ -154,29 +154,32 @@ function normalizeError(
   return { statusCode: -1, message: error.message }
 }
 
+// The response interceptor above unwraps `{ success, data }` and returns `data`
+// (typed `never` there), so at runtime these resolve to `T`. Axios's own return
+// type still describes the full response shape, so we assert the unwrapped type.
 const get = <T>(url: string, config?: AxiosRequestConfig): ApiResponse<T> =>
-  axiosInstance.get<T, T>(url, config)
+  axiosInstance.get(url, config) as unknown as Promise<T>
 
 const post = <T>(
   url: string,
   data?: unknown,
   config?: AxiosRequestConfig
-): ApiResponse<T> => axiosInstance.post<T, T>(url, data, config)
+): ApiResponse<T> => axiosInstance.post(url, data, config) as unknown as Promise<T>
 
 const patch = <T>(
   url: string,
   data?: unknown,
   config?: AxiosRequestConfig
-): ApiResponse<T> => axiosInstance.patch<T, T>(url, data, config)
+): ApiResponse<T> => axiosInstance.patch(url, data, config) as unknown as Promise<T>
 
 const put = <T>(
   url: string,
   data?: unknown,
   config?: AxiosRequestConfig
-): ApiResponse<T> => axiosInstance.put<T, T>(url, data, config)
+): ApiResponse<T> => axiosInstance.put(url, data, config) as unknown as Promise<T>
 
 const del = <T>(url: string, config?: AxiosRequestConfig): ApiResponse<T> =>
-  axiosInstance.delete<T, T>(url, config)
+  axiosInstance.delete(url, config) as unknown as Promise<T>
 
 export const api = { get, post, patch, put, delete: del }
 export { axiosInstance }

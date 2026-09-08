@@ -74,7 +74,6 @@ export const PERMISSIONS = {
   ORDER_CREATE: "order:create",
   ORDER_UPDATE: "order:update",
   ORDER_DELETE: "order:delete",
-  ORDER_CANCEL: "order:cancel",
   ORDER_MANAGE: "order:manage",
 
   // ─── Customer ────────────────────────────────────────────────────────────
@@ -92,81 +91,9 @@ export const PERMISSIONS = {
   TRANSACTION_UPDATE: "transaction:update",
   TRANSACTION_DELETE: "transaction:delete",
   TRANSACTION_MANAGE: "transaction:manage",
-
-  // ─── Payment ─────────────────────────────────────────────────────────────
-  PAYMENT_LIST: "payment:list",
-  PAYMENT_VIEW: "payment:view",
-  PAYMENT_CREATE: "payment:create",
-  PAYMENT_UPDATE: "payment:update",
-  PAYMENT_DELETE: "payment:delete",
-  PAYMENT_MANAGE: "payment:manage",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
-
-// ─── Role → Permission mapping ────────────────────────────────────────────────
-// Mirrors what the backend actually grants each scope.
-// SUPER_ADMIN (GLOBAL scope) → full access to everything.
-// ADMIN (TENANT scope) → manages their own tenant's menu, inventory, orders only.
-// Users / Roles / Tenants require GLOBAL scope; backend rejects TENANT scope for those.
-
-export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
-  SUPER_ADMIN: Object.values(PERMISSIONS) as Permission[],
-
-  ADMIN: [
-    // User & Role management (tenant-scoped)
-    PERMISSIONS.USER_LIST,
-    PERMISSIONS.USER_VIEW,
-    PERMISSIONS.USER_MANAGE,
-    PERMISSIONS.ROLE_LIST,
-    PERMISSIONS.ROLE_VIEW,
-    PERMISSIONS.ROLE_MANAGE,
-    // Tenant info (view own tenant)
-    PERMISSIONS.TENANT_VIEW,
-    PERMISSIONS.TENANT_MANAGE,
-    PERMISSIONS.PERMISSION_LIST,
-    PERMISSIONS.PERMISSION_VIEW,
-    // Resource management
-    PERMISSIONS.CATEGORY_LIST,
-    PERMISSIONS.CATEGORY_VIEW,
-    PERMISSIONS.CATEGORY_MANAGE,
-    PERMISSIONS.MENU_LIST,
-    PERMISSIONS.MENU_VIEW,
-    PERMISSIONS.MENU_MANAGE,
-    PERMISSIONS.TABLE_LIST,
-    PERMISSIONS.TABLE_VIEW,
-    PERMISSIONS.TABLE_MANAGE,
-    PERMISSIONS.ORDER_LIST,
-    PERMISSIONS.ORDER_VIEW,
-    PERMISSIONS.ORDER_MANAGE,
-    PERMISSIONS.PAYMENT_LIST,
-    PERMISSIONS.PAYMENT_VIEW,
-    PERMISSIONS.PAYMENT_MANAGE,
-  ],
-
-  CASHIER: [
-    PERMISSIONS.MENU_LIST,
-    PERMISSIONS.MENU_VIEW,
-    PERMISSIONS.TABLE_LIST,
-    PERMISSIONS.TABLE_VIEW,
-    PERMISSIONS.ORDER_LIST,
-    PERMISSIONS.ORDER_VIEW,
-    PERMISSIONS.ORDER_CREATE,
-    PERMISSIONS.ORDER_UPDATE,
-    PERMISSIONS.PAYMENT_LIST,
-    PERMISSIONS.PAYMENT_VIEW,
-    PERMISSIONS.PAYMENT_CREATE,
-  ],
-
-  CUSTOMER: [
-    PERMISSIONS.MENU_LIST,
-    PERMISSIONS.MENU_VIEW,
-    PERMISSIONS.ORDER_LIST,
-    PERMISSIONS.ORDER_VIEW,
-    PERMISSIONS.ORDER_CREATE,
-    PERMISSIONS.PAYMENT_CREATE,
-  ],
-};
 
 // Maps API scope → frontend role.
 // GLOBAL = Super Admin (full access). TENANT = Admin (tenant-scoped access).

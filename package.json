@@ -6,17 +6,22 @@
     "apps/*",
     "packages/*"
   ],
-  "packageManager": "npm@10.9.2",
+  "packageManager": "npm@11.11.0",
   "scripts": {
-    "dev:api": "npm run dev --workspace server",
-    "dev:web": "npm run dev --workspace apps/web",
-    "build": "npm run build --workspaces --if-present",
-    "check-types": "npm run check-types --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present",
-    "db:push": "npm run db:push --workspace @dio-sys-be/db",
-    "db:studio": "npm run db:studio --workspace @dio-sys-be/db",
-    "db:generate": "npm run db:generate --workspace @dio-sys-be/db",
-    "db:migrate": "npm run db:migrate --workspace @dio-sys-be/db",
-    "db:seed": "npm run db:seed --workspace @dio-sys-be/db"
+    "dev": "turbo run dev",
+    "dev:api": "turbo run dev --filter=server",
+    "dev:web": "turbo run dev --filter=dio-systems",
+    "build": "turbo run build",
+    "start": "turbo run start",
+    "lint": "turbo run lint",
+    "check-types": "turbo run check-types",
+    "db:push": "turbo run db:push --filter=@dio-sys-be/db",
+    "db:studio": "turbo run db:studio --filter=@dio-sys-be/db",
+    "db:generate": "turbo run db:generate --filter=@dio-sys-be/db",
+    "db:migrate": "turbo run db:migrate --filter=@dio-sys-be/db",
+    "db:seed": "turbo run db:seed --filter=@dio-sys-be/db"
+  },
+  "devDependencies": {
+    "turbo": "^2.10.12"
   }
 }

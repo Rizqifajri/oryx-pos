@@ -13,6 +13,24 @@ Everything below was deliberately **not** touched this pass — either it needs 
 
 ---
 
+## Pass 2 — Turborepo + end-to-end POS flow (2026-09-08)
+
+Made the app actually build, run, and complete a real order→payment cycle.
+
+1. **Turborepo.** Added `turbo.json` (cached `build`/`check-types`/`lint`, `^build` ordering, env-var hashing) and routed all root scripts through `turbo run`. Fixed the recursive `dev` script.
+2. **Green build.** Deleted dead `components/charts/*` (broke `next build` — see step 1 of the old plan) and the dead files in `features/customer/*` (kept the live `use-public-order.ts` + `types`). Fixed axios return-type errors in `lib/api.ts`. `turbo run build check-types` is now green across all workspaces.
+3. **Payment flow (was faked on both surfaces).** Decision taken: **POS immediate cash/counter** + **server-computed tax/service**.
+   - Backend: `transactions` now stores `subtotal`/`tax_amount`/`service_amount`/`total_amount` (tax 10%, service 5%, computed in `utils/pricing.ts`). New atomic `POST /orders/checkout` creates an already-COMPLETED, paid order in one DB transaction. `transaction.service.createTransaction` now computes the breakdown and frees the table atomically (fixes M4).
+   - POS (`pos-dashboard.tsx`) calls `/orders/checkout` instead of faking success; QR checkout (`(customer)/[tableId]/cart`) now **places the order and directs the customer to pay at the cashier** (removed the `setTimeout` fake-payment and the `[PAID]`-name hack). QR orders are settled by staff from the Orders board (NEW→PROCESSING→COMPLETED→record payment).
+4. **Permission model reconciled.** The DB carried 71 permissions across two naming schemes; existing tenant Admin/Owner roles were badly under-provisioned (one had 1 of 51). Ran `packages/db/src/reconcile-permissions.ts` (idempotent): removed 10 orphaned `*:read`/`order:cancel` permissions, backfilled legacy transaction subtotals, and re-synced all 13 TENANT Admin/Owner roles to the full 51 non-global permissions. Frontend: removed the phantom `payment:*` perms and dead `ROLE_PERMISSIONS`/`ORDER_CANCEL` constants; the role editor now shows real Customer + Transaction groups.
+5. **Customer QR pages were unreachable.** `proxy.ts` (Next 16 middleware) redirected `/<tableId>/menu` and `/<tableId>/cart` to `/login`. Added `isCustomerRoute()` so they're public and auth-agnostic; dashboard routes stay protected.
+
+Verified end-to-end against the dev DB/server: POS checkout records subtotal+tax+service and frees the table; dine-in/QR order runs NEW→PROCESSING→COMPLETED→paid; invalid transitions rejected (400); cross-tenant read/create rejected (403); customer pages 200 while dashboard/POS stay 307.
+
+**Still open** (unchanged from below): FK `onDelete` policy, `createdAt` as `date()` not `timestamp()`, migration-journal drift, the M1 privilege-escalation-via-role-reassign check, auth-transport hardening, and the pre-existing 14 lint errors (React-compiler `setState`-in-effect + `any`). None block running the app.
+
+---
+
 ## Next: recommended order
 
 ### 1. Dead code cleanup (do this first — cheap, safe, unblocks a green build)
