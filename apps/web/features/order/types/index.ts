@@ -16,6 +16,7 @@ export type Order = {
   status: OrderStatus
   items: OrderItem[]
   totalPrice: number
+  paymentMethod?: string | null
   notes?: string
   createdAt: string
 }
@@ -30,5 +31,7 @@ export type CreateOrderPayload = {
   tenantId: string
   tableId?: string | null
   customerId?: string
+  customerName?: string
+  paymentMethod?: string
   items: { menuId: string; quantity: number }[]
 }

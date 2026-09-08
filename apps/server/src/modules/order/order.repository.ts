@@ -46,6 +46,7 @@ export const findAllOrders = async () => {
       customerId: orders.customerId,
       status: orders.status,
       totalPrice: orders.totalPrice,
+      paymentMethod: orders.paymentMethod,
       createdAt: orders.createdAt,
       customerName: customers.name,
       tableName: tables.name,
@@ -77,6 +78,7 @@ export const findOrdersByTenantId = async (
       customerId: orders.customerId,
       status: orders.status,
       totalPrice: orders.totalPrice,
+      paymentMethod: orders.paymentMethod,
       createdAt: orders.createdAt,
       customerName: customers.name,
       tableName: tables.name,
@@ -139,6 +141,7 @@ export const createOrderWithItems = async (
     customerId?: string | null;
     totalPrice: number;
     status?: OrderStatus;
+    paymentMethod?: string | null;
   },
   items: (OrderItemInput & { price: number })[],
   tx: Transaction,
@@ -151,6 +154,7 @@ export const createOrderWithItems = async (
       customerId: orderData.customerId ?? null,
       totalPrice: orderData.totalPrice,
       status: orderData.status ?? "NEW",
+      paymentMethod: orderData.paymentMethod ?? null,
     })
     .returning();
 

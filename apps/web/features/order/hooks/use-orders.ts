@@ -33,37 +33,8 @@ export function useCreateOrder() {
   return useMutation({
     mutationFn: (payload: CreateOrderPayload) =>
       api.post<Order>("/orders", payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["orders"] }),
-  })
-}
-
-export interface PosCheckoutPayload extends CreateOrderPayload {
-  paymentMethod: string
-}
-
-export interface PosCheckoutResult extends Order {
-  transaction: {
-    id: string
-    subtotal: number
-    taxAmount: number
-    serviceAmount: number
-    totalAmount: number
-    paymentMethod: string
-  }
-}
-
-/**
- * POS "Proses & Bayar": creates an already-COMPLETED order and records its
- * payment (with server-computed tax/service) in a single request.
- */
-export function usePosCheckout() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (payload: PosCheckoutPayload) =>
-      api.post<PosCheckoutResult>("/orders/checkout", payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["orders"] })
-      qc.invalidateQueries({ queryKey: ["transactions"] })
       qc.invalidateQueries({ queryKey: ["tables"] })
     },
   })
@@ -81,9 +52,15 @@ export function useUpdateOrderStatus() {
 export function useCreateTransaction() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ orderId, paymentMethod = "cash" }: { orderId: string; paymentMethod?: string }) =>
+    // paymentMethod is optional — when omitted, the backend uses the method
+    // the order was created with (POS), falling back to "cash".
+    mutationFn: ({ orderId, paymentMethod }: { orderId: string; paymentMethod?: string }) =>
       api.post<{ id: string }>(`/transactions`, { orderId, paymentMethod }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["orders"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["orders"] })
+      qc.invalidateQueries({ queryKey: ["transactions"] })
+      qc.invalidateQueries({ queryKey: ["tables"] })
+    },
   })
 }
 

@@ -1,7 +1,6 @@
 import type { UserContext } from "@/types/user-context";
 import { AppError } from "@/utils/app-error";
 import { assertTenantMatch } from "@/utils/assert-permission";
-import { computePriceBreakdown } from "@/utils/pricing";
 import { db } from "@dio-sys-be/db";
 import { tables } from "@dio-sys-be/db/schema";
 import { eq } from "drizzle-orm";
@@ -9,12 +8,10 @@ import * as categoryRepo from "../category/category.repository";
 import * as customerRepo from "../customer/customer.repository";
 import * as menuRepo from "../menu/menu.repository";
 import * as tableRepo from "../table/table.repository";
-import * as transactionRepo from "../transaction/transaction.repository";
 import * as orderRepo from "./order.repository";
 import type {
   CreateOrderInput,
   OrderStatus,
-  PosCheckoutInput,
   PublicCreateOrderInput,
   UpdateOrderStatusInput,
 } from "./order.schema";
@@ -151,6 +148,7 @@ export const createOrder = async (
         tableId: input.tableId ?? null,
         customerId: customerId,
         totalPrice,
+        paymentMethod: input.paymentMethod ?? null,
       },
       resolvedItems,
       tx,
@@ -165,96 +163,6 @@ export const createOrder = async (
     }
 
     return order;
-  });
-};
-
-/**
- * POS "Proses & Bayar": atomically create an already-COMPLETED order and record
- * its payment. Used for immediate counter/cash sales — the order is created,
- * completed, and paid in a single DB transaction, and tax/service are computed
- * server-side. Unlike dine-in orders, the table is not marked OCCUPIED because
- * payment is settled immediately.
- */
-export const createPosCheckout = async (
-  ctx: UserContext,
-  input: PosCheckoutInput,
-) => {
-  if (ctx.scope === "TENANT") {
-    if (!ctx.tenantId) throw new AppError("Tenant context required", 400);
-    if (input.tenantId !== ctx.tenantId)
-      throw new AppError("You can only create orders in your own tenant", 403);
-  }
-
-  if (input.tableId) {
-    const table = await tableRepo.findTableById(input.tableId);
-    if (!table) throw new AppError("Table not found", 404);
-    if (table.tenantId !== input.tenantId)
-      throw new AppError("Table does not belong to this tenant", 400);
-  }
-
-  let customerId: string | null = null;
-  if (input.customerId) {
-    const customer = await customerRepo.findCustomerById(input.customerId);
-    if (!customer) throw new AppError("Customer not found", 404);
-    if (customer.tenantId !== input.tenantId)
-      throw new AppError("Customer does not belong to this tenant", 400);
-    customerId = input.customerId;
-  } else if (input.customerName) {
-    customerId = await findOrCreateCustomer(
-      input.tenantId,
-      input.customerName,
-      input.customerPhone,
-    );
-  }
-
-  const resolvedItems = await Promise.all(
-    input.items.map(async (item) => {
-      const menu = await menuRepo.findMenuById(item.menuId);
-      if (!menu) throw new AppError(`Menu item ${item.menuId} not found`, 404);
-      if (menu.tenantId !== input.tenantId)
-        throw new AppError(
-          `Menu item ${item.menuId} does not belong to this tenant`,
-          400,
-        );
-      if (!menu.isAvailable)
-        throw new AppError(`Menu item "${menu.name}" is not available`, 400);
-      return { ...item, price: menu.price };
-    }),
-  );
-
-  const subtotal = resolvedItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0,
-  );
-  const breakdown = computePriceBreakdown(subtotal);
-
-  return await db.transaction(async (tx) => {
-    const order = await orderRepo.createOrderWithItems(
-      {
-        tenantId: input.tenantId,
-        tableId: input.tableId ?? null,
-        customerId,
-        totalPrice: subtotal,
-        status: "COMPLETED",
-      },
-      resolvedItems,
-      tx,
-    );
-
-    const transaction = await transactionRepo.createTransaction(
-      {
-        tenantId: input.tenantId,
-        orderId: order.id,
-        subtotal: breakdown.subtotal,
-        taxAmount: breakdown.taxAmount,
-        serviceAmount: breakdown.serviceAmount,
-        totalAmount: breakdown.totalAmount,
-        paymentMethod: input.paymentMethod,
-      },
-      tx,
-    );
-
-    return { ...order, transaction };
   });
 };
 

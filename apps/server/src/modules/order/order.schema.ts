@@ -18,17 +18,12 @@ export const createOrderSchema = z.object({
   customerId: z.string().uuid().optional(),
   customerName: z.string().min(2).max(100).trim().optional(),
   customerPhone: z.string().min(5).max(20).trim().optional(),
+  paymentMethod: z.string().min(1).max(50).trim().optional(),
   items: z.array(orderItemInputSchema).min(1),
 });
 
 export const updateOrderStatusSchema = z.object({
   status: z.enum(["PROCESSING", "COMPLETED", "CANCELED"]),
-});
-
-// POS "Proses & Bayar": create an order and record its payment in one shot.
-// The order is created already COMPLETED and paid (immediate counter payment).
-export const posCheckoutSchema = createOrderSchema.extend({
-  paymentMethod: z.string().min(1).max(50).trim(),
 });
 
 export const publicCreateOrderSchema = z.object({
@@ -44,4 +39,3 @@ export type OrderItemInput = z.infer<typeof orderItemInputSchema>;
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;
 export type PublicCreateOrderInput = z.infer<typeof publicCreateOrderSchema>;
-export type PosCheckoutInput = z.infer<typeof posCheckoutSchema>;

@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useCart } from "@/features/cart/context/cart-context"
 import { usePosMenus, usePosTables } from "../hooks/use-pos"
-import { usePosCheckout } from "@/features/order/hooks/use-orders"
+import { useCreateOrder } from "@/features/order/hooks/use-orders"
 import { usePaymentCalculation } from "@/features/cart/hooks/use-payment-calculation"
 import { getStoredUser } from "@/features/auth/hooks/use-auth"
 import { Button } from "@/components/ui/button"
@@ -13,7 +13,7 @@ import { Plus, Minus, ShoppingCart, CheckCircle2, User, Armchair, CreditCard } f
 export function PosDashboard() {
   const { data: menus = [], isLoading: loadingMenus } = usePosMenus()
   const { data: tables = [], isLoading: loadingTables } = usePosTables()
-  const { mutateAsync: posCheckout } = usePosCheckout()
+  const { mutateAsync: createOrder } = useCreateOrder()
 
   const { items, addItem, updateQuantity, clear, total, itemCount } = useCart()
   const { tax, service, totalPayment } = usePaymentCalculation(total)
@@ -68,10 +68,10 @@ export function PosDashboard() {
         tenantId: user.tenantId,
         tableId: selectedTable || null,
         customerName: customerName.trim() || undefined,
-        items: validItems,
         paymentMethod,
+        items: validItems,
       }
-      await posCheckout(payload)
+      await createOrder(payload)
       setIsSuccess(true)
       setTimeout(() => {
         clear()
@@ -82,7 +82,7 @@ export function PosDashboard() {
       }, 2000)
     } catch (e) {
       console.error(e)
-      alert("Gagal memproses pesanan")
+      alert("Gagal membuat pesanan")
     } finally {
       setIsProcessing(false)
     }
@@ -92,10 +92,10 @@ export function PosDashboard() {
     return (
       <div className="flex h-full flex-col items-center justify-center p-8 text-center space-y-4">
         <CheckCircle2 className="h-16 w-16 text-green-500" />
-        <h2 className="text-2xl font-bold">Pembayaran Berhasil!</h2>
+        <h2 className="text-2xl font-bold">Pesanan Dibuat!</h2>
         <p className="text-muted-foreground">
-          Pesanan {customerName ? `atas nama ${customerName} ` : ""}telah dibayar
-          ({formatPrice(totalPayment)}) dan selesai.
+          Pesanan {customerName ? `atas nama ${customerName} ` : ""}telah dikirim
+          ke dapur. Lanjutkan proses dan pembayaran di halaman Pesanan.
         </p>
       </div>
     )
@@ -202,9 +202,9 @@ export function PosDashboard() {
 
             <div className="flex items-center border rounded-lg overflow-hidden bg-white">
               <div className="p-2.5 bg-muted border-r"><User className="h-4 w-4 text-muted-foreground" /></div>
-              <input 
-                type="text" 
-                placeholder="Nama Pelanggan" 
+              <input
+                type="text"
+                placeholder="Nama Pelanggan"
                 className="flex-1 p-2.5 text-sm outline-none"
                 value={customerName}
                 onChange={e => setCustomerName(e.target.value)}
@@ -213,7 +213,7 @@ export function PosDashboard() {
 
             <div className="flex items-center border rounded-lg overflow-hidden bg-white">
               <div className="p-2.5 bg-muted border-r"><CreditCard className="h-4 w-4 text-muted-foreground" /></div>
-              <select 
+              <select
                 className="flex-1 p-2.5 text-sm outline-none bg-transparent"
                 value={paymentMethod}
                 onChange={e => setPaymentMethod(e.target.value)}
@@ -238,10 +238,13 @@ export function PosDashboard() {
               <span>Service (5%)</span>
               <span>{formatPrice(service)}</span>
             </div>
-            <div className="flex justify-between font-bold text-base pt-1">
+            <div className="flex justify-between font-bold text-base pt-1 border-t">
               <span>Total</span>
               <span>{formatPrice(totalPayment)}</span>
             </div>
+            <p className="text-[11px] text-muted-foreground">
+              Pembayaran dikonfirmasi saat pesanan selesai di halaman Pesanan.
+            </p>
           </div>
 
           <Button 
@@ -249,7 +252,7 @@ export function PosDashboard() {
             disabled={items.length === 0 || isProcessing}
             onClick={handleProcessOrder}
           >
-            {isProcessing ? "Memproses..." : "PROSES & BAYAR"}
+            {isProcessing ? "Memproses..." : "BUAT PESANAN"}
           </Button>
         </div>
       </div>

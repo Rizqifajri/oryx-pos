@@ -1,4 +1,4 @@
-import { date, integer, pgEnum, pgTable, uuid } from "drizzle-orm/pg-core";
+import { date, integer, pgEnum, pgTable, text, uuid } from "drizzle-orm/pg-core";
 import { customers } from "./customer";
 import { tables } from "./table";
 import { tenants } from "./tenant";
@@ -19,5 +19,8 @@ export const orders = pgTable("orders", {
   customerId: uuid("customer_id").references(() => customers.id),
   status: orderStatus("status").default("NEW").notNull(),
   totalPrice: integer("total_price").notNull(),
+  // Intended payment method chosen at order time (e.g. cash/qris/debit).
+  // Null for QR/self-service orders; the recorded Transaction defaults to this.
+  paymentMethod: text("payment_method"),
   createdAt: date("created_at").notNull().defaultNow(),
 });

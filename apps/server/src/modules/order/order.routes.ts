@@ -7,7 +7,6 @@ import { Router } from "express";
 import * as orderController from "./order.controller";
 import {
   createOrderSchema,
-  posCheckoutSchema,
   publicCreateOrderSchema,
   updateOrderStatusSchema,
 } from "./order.schema";
@@ -44,12 +43,6 @@ router.post(
   requirePermission("order:manage", "order:create"),
   validate(createOrderSchema),
   asyncHandler(orderController.createOrder),
-);
-router.post(
-  "/checkout",
-  requirePermission("order:manage", "order:create"),
-  validate(posCheckoutSchema),
-  asyncHandler(orderController.posCheckout),
 );
 router.patch(
   "/:id/status",

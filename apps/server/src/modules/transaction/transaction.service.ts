@@ -83,6 +83,11 @@ export const createTransaction = async (
   // recorded amount is authoritative and can never be spoofed by the client.
   const breakdown = computePriceBreakdown(order.totalPrice);
 
+  // Payment method: an explicit choice at settlement wins, otherwise use the
+  // method the cashier picked when the order was created, then default to cash.
+  const paymentMethod =
+    input.paymentMethod ?? order.paymentMethod ?? "cash";
+
   // Insert the transaction and free the table atomically — a failure between
   // the two must not leave a paid order sitting on an occupied table.
   return await db.transaction(async (tx) => {
@@ -94,7 +99,7 @@ export const createTransaction = async (
         taxAmount: breakdown.taxAmount,
         serviceAmount: breakdown.serviceAmount,
         totalAmount: breakdown.totalAmount,
-        paymentMethod: input.paymentMethod,
+        paymentMethod,
       },
       tx,
     );
