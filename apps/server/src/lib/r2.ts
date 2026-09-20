@@ -1,4 +1,9 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  PutBucketCorsCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "@dio-sys-be/env/server";
 import { AppError } from "@/utils/app-error";
 
@@ -105,4 +110,67 @@ export const uploadToR2 = async (
   }
 
   return `${config.publicUrl}/${key}`;
+};
+
+/** How long a presigned upload URL stays valid (seconds). */
+const PRESIGN_EXPIRES_IN = 5 * 60; // 5 minutes
+
+/**
+ * Generates a presigned PUT URL so the client can upload `key` directly to R2,
+ * plus the public URL the object will be served from once uploaded. The client
+ * must PUT with the same `Content-Type` used to sign, or R2 rejects the request.
+ * Throws AppError(503) if storage isn't configured, AppError(502) on failure.
+ */
+export const getPresignedUploadUrl = async (
+  key: string,
+  contentType: string,
+): Promise<{ uploadUrl: string; publicUrl: string }> => {
+  const config = getConfig();
+  const client = getClient(config);
+
+  try {
+    const uploadUrl = await getSignedUrl(
+      client,
+      new PutObjectCommand({
+        Bucket: config.bucket,
+        Key: key,
+        ContentType: contentType,
+        CacheControl: "public, max-age=31536000, immutable",
+      }),
+      { expiresIn: PRESIGN_EXPIRES_IN },
+    );
+
+    return { uploadUrl, publicUrl: `${config.publicUrl}/${key}` };
+  } catch (err) {
+    console.error("R2 presign failed:", err);
+    throw new AppError("Failed to prepare image upload", 502);
+  }
+};
+
+/**
+ * Applies a CORS policy to the bucket so browsers can PUT directly to presigned
+ * URLs from the given origins. Without this, the preflight OPTIONS request R2
+ * receives for a cross-origin PUT is rejected with 403. Run once per bucket (or
+ * whenever the allowed origins change).
+ */
+export const setBucketCors = async (origins: string[]): Promise<void> => {
+  const config = getConfig();
+  const client = getClient(config);
+
+  await client.send(
+    new PutBucketCorsCommand({
+      Bucket: config.bucket,
+      CORSConfiguration: {
+        CORSRules: [
+          {
+            AllowedOrigins: origins,
+            AllowedMethods: ["PUT", "GET", "HEAD"],
+            AllowedHeaders: ["*"],
+            ExposeHeaders: ["ETag"],
+            MaxAgeSeconds: 3600,
+          },
+        ],
+      },
+    }),
+  );
 };

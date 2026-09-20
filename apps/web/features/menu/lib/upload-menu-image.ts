@@ -1,35 +1,52 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
 
 /**
- * Uploads a menu image through the backend, which stores it in Cloudflare R2
- * and returns the public URL. The file is streamed straight to the API as
- * multipart/form-data — it never touches the web server or local disk.
+ * Uploads a menu image using a presigned URL: the backend hands out a short-lived
+ * PUT URL for Cloudflare R2, and the browser uploads the file straight to R2.
+ * The file never passes through the web server or the API. Returns the public URL.
  */
 export async function uploadMenuImage(file: File): Promise<string> {
-  const formData = new FormData()
-  formData.append("file", file)
-
   const token =
     typeof window !== "undefined"
       ? localStorage.getItem("access_token")
       : null
 
-  const res = await fetch(`${API_BASE}/uploads/menu`, {
+  const presignRes = await fetch(`${API_BASE}/uploads/menu`, {
     method: "POST",
-    // Do NOT set Content-Type — the browser adds the multipart boundary.
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    body: formData,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ contentType: file.type, size: file.size }),
   })
 
-  const body = (await res.json().catch(() => null)) as {
+  const presignBody = (await presignRes.json().catch(() => null)) as {
     success: boolean
-    data?: { url: string }
+    data?: { uploadUrl: string; publicUrl: string }
     message?: string
   } | null
 
-  if (!res.ok || !body?.success || !body.data?.url) {
-    throw new Error(body?.message ?? "Failed to upload image")
+  if (
+    !presignRes.ok ||
+    !presignBody?.success ||
+    !presignBody.data?.uploadUrl ||
+    !presignBody.data?.publicUrl
+  ) {
+    throw new Error(presignBody?.message ?? "Failed to prepare image upload")
   }
 
-  return body.data.url
+  const { uploadUrl, publicUrl } = presignBody.data
+
+  // Content-Type must match what the backend signed, or R2 rejects the PUT.
+  const uploadRes = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+  })
+
+  if (!uploadRes.ok) {
+    throw new Error("Failed to upload image")
+  }
+
+  return publicUrl
 }

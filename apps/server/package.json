@@ -7,10 +7,12 @@
     "check-types": "tsc -b",
     "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
     "dev": "tsx watch src/index.ts",
+    "r2:cors": "tsx src/scripts/set-r2-cors.ts",
     "start": "node dist/index.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1127.0",
+    "@aws-sdk/s3-request-presigner": "^3.1136.0",
     "@dio-sys-be/db": "*",
     "@dio-sys-be/env": "*",
     "bcrypt": "^5.1.1",
