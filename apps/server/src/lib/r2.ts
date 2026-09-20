@@ -57,6 +57,12 @@ const getClient = (config: R2Config): S3Client => {
       accessKeyId: config.accessKeyId,
       secretAccessKey: config.secretAccessKey,
     },
+    // Cloudflare R2 does not support the flexible-checksum trailers that
+    // @aws-sdk/client-s3 sends by default (>=3.729). Leaving these on makes
+    // PutObject fail or store a corrupted, aws-chunked body. Only compute a
+    // checksum when the operation strictly requires it.
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
   });
   return cachedClient;
 };
