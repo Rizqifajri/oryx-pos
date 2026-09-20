@@ -1,4 +1,5 @@
 import {
+  DeleteObjectCommand,
   PutBucketCorsCommand,
   PutObjectCommand,
   S3Client,
@@ -110,6 +111,32 @@ export const uploadToR2 = async (
   }
 
   return `${config.publicUrl}/${key}`;
+};
+
+/**
+ * Deletes the object stored at a public URL that this module produced (i.e. one
+ * starting with the configured public base). Best-effort: a missing object or a
+ * URL from a different host is ignored, and storage errors are logged but not
+ * thrown, so cleanup never blocks the primary operation (e.g. deleting a menu).
+ */
+export const deleteFromR2ByUrl = async (url: string): Promise<void> => {
+  if (!isR2Configured()) return;
+
+  const config = getConfig();
+  const base = `${config.publicUrl}/`;
+  if (!url.startsWith(base)) return;
+
+  const key = url.slice(base.length);
+  if (!key) return;
+
+  try {
+    const client = getClient(config);
+    await client.send(
+      new DeleteObjectCommand({ Bucket: config.bucket, Key: key }),
+    );
+  } catch (err) {
+    console.error("R2 delete failed:", err);
+  }
 };
 
 /** How long a presigned upload URL stays valid (seconds). */

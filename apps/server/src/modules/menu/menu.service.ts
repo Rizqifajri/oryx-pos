@@ -1,4 +1,5 @@
 import type { UserContext } from "@/types/user-context";
+import { deleteFromR2ByUrl } from "@/lib/r2";
 import { AppError } from "@/utils/app-error";
 import { assertTenantMatch } from "@/utils/assert-permission";
 import * as categoryRepo from "../category/category.repository";
@@ -158,7 +159,19 @@ export const updateMenu = async (
     }
   }
 
-  return await menuRepo.updateMenu(id, input);
+  const updated = await menuRepo.updateMenu(id, input);
+
+  // If the image was replaced, clean up the previous object in R2.
+  // Best-effort: failures here are logged, not thrown.
+  if (
+    input.imageUrl !== undefined &&
+    menu.imageUrl &&
+    menu.imageUrl !== input.imageUrl
+  ) {
+    await deleteFromR2ByUrl(menu.imageUrl);
+  }
+
+  return updated;
 };
 
 export const toggleAvailability = async (
@@ -223,5 +236,8 @@ export const deleteMenu = async (ctx: UserContext, id: string) => {
     assertTenantMatch(ctx, menu.tenantId);
   }
 
+  // Soft delete: the row stays (order history joins to it for the menu name)
+  // but it disappears from every menu listing. The image is kept for the same
+  // reason. Never fails on FK relations the way a hard delete did.
   return await menuRepo.deleteMenu(id);
 };

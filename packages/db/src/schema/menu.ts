@@ -4,6 +4,7 @@ import {
   integer,
   pgTable,
   text,
+  timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
 import { categories } from "./category";
@@ -23,4 +24,7 @@ export const menus = pgTable("menus", {
   imageUrl: text("image_url").notNull(),
   isAvailable: boolean("is_available").notNull(),
   createdAt: date("created_at").notNull().defaultNow(),
+  // Soft delete: non-null means the menu is deleted and hidden from listings,
+  // while the row stays so order history can still resolve its name.
+  deletedAt: timestamp("deleted_at"),
 });
