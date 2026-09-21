@@ -29,6 +29,13 @@
       "when": 1780373527747,
       "tag": "0003_red_the_phantom",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790008126508,
+      "tag": "0004_nice_vargas",
+      "breakpoints": true
     }
   ]
 }

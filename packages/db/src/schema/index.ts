@@ -3,6 +3,7 @@ export * from "./customer";
 export * from "./menu";
 export * from "./order";
 export * from "./orderItem";
+export * from "./payment-request";
 export * from "./permission";
 export * from "./role";
 export * from "./rolePermission";

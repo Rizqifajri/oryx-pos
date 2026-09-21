@@ -33,13 +33,13 @@ export default function PublicMenuPage() {
   if (error || !menuData) {
     return (
       <div className="p-4 text-center mt-20 max-w-md mx-auto">
-        <p className="text-destructive mb-4">Gagal memuat menu. Silakan coba lagi nanti.</p>
-        <Button variant="outline" onClick={() => window.location.reload()}>Coba Lagi</Button>
+        <p className="text-destructive mb-4">Failed to load menu. Please try again later.</p>
+        <Button variant="outline" onClick={() => window.location.reload()}>Try Again</Button>
       </div>
     )
   }
 
-  const { table, categories, menus } = menuData
+  const { table, tenant, categories, menus } = menuData
 
   // Set default category if none selected and categories exist
   if (!activeCategory && categories.length > 0) {
@@ -77,7 +77,7 @@ export default function PublicMenuPage() {
               <Utensils className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="font-bold text-base leading-tight">Flavor Junction</h1>
+              <h1 className="font-bold text-base leading-tight">{tenant.name}</h1>
               <p className="text-xs text-muted-foreground">{table.name}</p>
             </div>
           </div>
@@ -88,7 +88,7 @@ export default function PublicMenuPage() {
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
           <input
             type="text"
-            placeholder="Cari makanan atau minuman..."
+            placeholder="Search for food or drinks..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full h-9 pl-9 pr-4 bg-neutral-100 rounded-full text-xs outline-none focus:ring-1 focus:ring-primary/30 transition-all"
@@ -192,7 +192,7 @@ export default function PublicMenuPage() {
           })
         ) : (
           <div className="py-12 text-center text-xs text-neutral-400">
-            Menu tidak ditemukan di kategori ini.
+            Menu not found in this category.
           </div>
         )}
       </main>
@@ -208,7 +208,7 @@ export default function PublicMenuPage() {
             className="w-full flex items-center justify-between px-4 py-2 bg-neutral-50 rounded-t-2xl border-b border-neutral-100"
           >
             <span className="text-xs font-semibold text-neutral-600 flex items-center gap-1">
-              Detail Pesanan ({totalItems} Item)
+              Order Details ({totalItems} Item)
             </span>
             {isCartExpanded ? <ChevronDown className="h-4 w-4 text-neutral-400" /> : <ChevronUp className="h-4 w-4 text-neutral-400" />}
           </button>
@@ -251,7 +251,7 @@ export default function PublicMenuPage() {
           {/* Bar Utama Aksi Kasir */}
           <div className="p-4 bg-white flex items-center justify-between gap-4">
             <div className="flex flex-col">
-              <span className="text-[10px] font-medium text-neutral-400 uppercase tracking-wider">Total Pembayaran</span>
+              <span className="text-[10px] font-medium text-neutral-400 uppercase tracking-wider">Total Payment</span>
               <span className="font-extrabold text-base text-neutral-900">{formatPrice(totalPrice)}</span>
             </div>
 
@@ -261,7 +261,7 @@ export default function PublicMenuPage() {
               onClick={handleCheckout}
             >
               <ShoppingBag className="h-3.5 w-3.5" />
-              Pesan Sekarang
+              Order Now
             </Button>
           </div>
         </div>

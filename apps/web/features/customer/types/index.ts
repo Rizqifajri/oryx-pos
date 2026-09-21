@@ -25,6 +25,7 @@ export type PublicMenu = {
 
 export type PublicMenuResponse = {
   table: PublicTable
+  tenant: { id: string; name: string }
   categories: PublicCategory[]
   menus: PublicMenu[]
 }

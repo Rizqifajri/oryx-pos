@@ -14,7 +14,8 @@
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
     "db:migrate": "tsx src/migrate.ts",
-    "db:seed": "tsx src/seed.ts"
+    "db:seed": "tsx src/seed.ts",
+    "db:fix-images": "tsx src/fix-invalid-image-urls.ts"
   },
   "dependencies": {
     "@dio-sys-be/env": "*",

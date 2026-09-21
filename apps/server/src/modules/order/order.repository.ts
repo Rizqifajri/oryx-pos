@@ -37,6 +37,24 @@ const attachItems = async (
   }));
 };
 
+export const findOrderItemsByOrderId = async (orderId: string) => {
+  const items = await db
+    .select({
+      id: orderItems.id,
+      orderId: orderItems.orderId,
+      menuId: orderItems.menuId,
+      menuName: menus.name,
+      quantity: orderItems.quantity,
+      price: orderItems.price,
+    })
+    .from(orderItems)
+    .innerJoin(menus, eq(orderItems.menuId, menus.id))
+    .where(eq(orderItems.orderId, orderId));
+
+  return items;
+};
+
+
 export const findAllOrders = async () => {
   const orderList = await db
     .select({
@@ -92,8 +110,22 @@ export const findOrdersByTenantId = async (
 
 export const findOrderById = async (id: string) => {
   const order = await db
-    .select()
+    .select({
+      id: orders.id,
+      tenantId: orders.tenantId,
+      tableId: orders.tableId,
+      customerId: orders.customerId,
+      status: orders.status,
+      totalPrice: orders.totalPrice,
+      paymentMethod: orders.paymentMethod,
+      createdAt: orders.createdAt,
+      customerName: customers.name,
+      customerPhone: customers.phone,
+      tableName: tables.name,
+    })
     .from(orders)
+    .leftJoin(customers, eq(orders.customerId, customers.id))
+    .leftJoin(tables, eq(orders.tableId, tables.id))
     .where(eq(orders.id, id))
     .limit(1);
 

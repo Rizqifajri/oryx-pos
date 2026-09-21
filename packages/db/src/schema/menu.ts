@@ -21,7 +21,7 @@ export const menus = pgTable("menus", {
   name: text("name").notNull(),
   description: text("description").notNull(),
   price: integer("price").notNull(),
-  imageUrl: text("image_url").notNull(),
+  imageUrl: text("image_url"),
   isAvailable: boolean("is_available").notNull(),
   createdAt: date("created_at").notNull().defaultNow(),
   // Soft delete: non-null means the menu is deleted and hidden from listings,

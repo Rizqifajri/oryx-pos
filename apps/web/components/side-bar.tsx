@@ -66,7 +66,7 @@ const navGroups: NavGroup[] = [
     label: "Operations",
     scopes: ["TENANT"],
     items: [
-      { title: "POS Kasir", href: "/pos", icon: Monitor, permissions: [PERMISSIONS.ORDER_MANAGE] },
+      { title: "POS Cashier", href: "/pos", icon: Monitor, permissions: [PERMISSIONS.ORDER_MANAGE] },
       { title: "Menu", href: "/menu", icon: BookOpen, permissions: [PERMISSIONS.MENU_MANAGE] },
       { title: "Tables", href: "/tables", icon: LayoutGrid, permissions: [PERMISSIONS.TABLE_MANAGE] },
       { title: "Inventory", href: "/inventory", icon: Package, permissions: [PERMISSIONS.MENU_MANAGE] },

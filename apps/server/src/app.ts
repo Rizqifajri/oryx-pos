@@ -7,6 +7,7 @@ import categoryRoute from "./modules/category/category.routes";
 import customerRoute from "./modules/customer/customer.routes";
 import menuRoute from "./modules/menu/menu.routes";
 import orderRoute from "./modules/order/order.routes";
+import paymentRoute from "./modules/payment/payment.routes";
 import permissionRoute from "./modules/permission/permission.routes";
 import roleRoute from "./modules/role/role.routes";
 import tableRoute from "./modules/table/table.routes";
@@ -41,6 +42,7 @@ app.use("/api/v1/tables", tableRoute);
 app.use("/api/v1/customers", customerRoute);
 app.use("/api/v1/orders", orderRoute);
 app.use("/api/v1/transactions", transactionRoute);
+app.use("/api/v1/payments", paymentRoute);
 app.use("/api/v1/uploads", uploadRoute);
 
 app.use(errorHandler);

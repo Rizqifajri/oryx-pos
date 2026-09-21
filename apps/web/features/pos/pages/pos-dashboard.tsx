@@ -34,12 +34,12 @@ export function PosDashboard() {
 
   async function handleProcessOrder() {
     if (items.length === 0) {
-      alert("Keranjang masih kosong!")
+      alert("Cart is empty!")
       return
     }
     // Only require customer name for takeout/walk-in (no table selected)
     if (!selectedTable && !customerName.trim()) {
-      alert("Nama pelanggan wajib untuk take-out!")
+      alert("Customer name is required for take-out!")
       return
     }
 
@@ -52,14 +52,14 @@ export function PosDashboard() {
       }))
 
       if (validItems.length === 0) {
-        alert("Item di keranjang tidak valid. Silakan hapus dan tambahkan kembali.")
+        alert("Items in cart are invalid. Please remove and add them again.")
         setIsProcessing(false)
         return
       }
 
       const user = getStoredUser()
       if (!user?.tenantId) {
-        alert("Tenant tidak ditemukan. Silakan login ulang.")
+        alert("Tenant not found. Please login again.")
         setIsProcessing(false)
         return
       }
@@ -82,7 +82,7 @@ export function PosDashboard() {
       }, 2000)
     } catch (e) {
       console.error(e)
-      alert("Gagal membuat pesanan")
+      alert("Failed to create order")
     } finally {
       setIsProcessing(false)
     }
@@ -92,10 +92,10 @@ export function PosDashboard() {
     return (
       <div className="flex h-full flex-col items-center justify-center p-8 text-center space-y-4">
         <CheckCircle2 className="h-16 w-16 text-green-500" />
-        <h2 className="text-2xl font-bold">Pesanan Dibuat!</h2>
+        <h2 className="text-2xl font-bold">Order Created!</h2>
         <p className="text-muted-foreground">
-          Pesanan {customerName ? `atas nama ${customerName} ` : ""}telah dikirim
-          ke dapur. Lanjutkan proses dan pembayaran di halaman Pesanan.
+          Order {customerName ? `for ${customerName} ` : ""}has been sent
+          to the kitchen. Continue the process and payment on the Orders page.
         </p>
       </div>
     )
@@ -154,7 +154,7 @@ export function PosDashboard() {
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {items.length === 0 ? (
             <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-              Belum ada pesanan
+              No orders yet
             </div>
           ) : (
             items.map((item) => (
@@ -193,9 +193,9 @@ export function PosDashboard() {
                 value={selectedTable}
                 onChange={e => setSelectedTable(e.target.value)}
               >
-                <option value="">Takeout / Walk-in (Tanpa Meja)</option>
+                <option value="">Takeout / Walk-in (No Table)</option>
                 {tables.map(t => (
-                  <option key={t.id} value={t.id}>{t.name.replace(/meja/i, '').trim()} (Meja)</option>
+                  <option key={t.id} value={t.id}>{t.name.replace(/meja/i, '').trim()} (Table)</option>
                 ))}
               </select>
             </div>
@@ -204,7 +204,7 @@ export function PosDashboard() {
               <div className="p-2.5 bg-muted border-r"><User className="h-4 w-4 text-muted-foreground" /></div>
               <input
                 type="text"
-                placeholder="Nama Pelanggan"
+                placeholder="Customer Name"
                 className="flex-1 p-2.5 text-sm outline-none"
                 value={customerName}
                 onChange={e => setCustomerName(e.target.value)}
@@ -231,7 +231,7 @@ export function PosDashboard() {
               <span>{formatPrice(total)}</span>
             </div>
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Pajak (10%)</span>
+              <span>Tax (10%)</span>
               <span>{formatPrice(tax)}</span>
             </div>
             <div className="flex justify-between text-xs text-muted-foreground">
@@ -243,7 +243,7 @@ export function PosDashboard() {
               <span>{formatPrice(totalPayment)}</span>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Pembayaran dikonfirmasi saat pesanan selesai di halaman Pesanan.
+              Payment confirmed when order is completed on Orders page.
             </p>
           </div>
 
@@ -252,7 +252,7 @@ export function PosDashboard() {
             disabled={items.length === 0 || isProcessing}
             onClick={handleProcessOrder}
           >
-            {isProcessing ? "Memproses..." : "BUAT PESANAN"}
+            {isProcessing ? "Processing..." : "CREATE ORDER"}
           </Button>
         </div>
       </div>

@@ -2,11 +2,29 @@
 
 import { useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, CheckCircle2, Receipt, Loader2, Minus, Plus, Store } from "lucide-react"
+import { ArrowLeft, CheckCircle2, Receipt, Loader2, Minus, Plus, CreditCard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCart } from "@/features/cart/context/cart-context"
 import { useCreatePublicOrder } from "@/features/customer/hooks/use-public-order"
 import { usePaymentCalculation } from "@/features/cart/hooks/use-payment-calculation"
+import { useCreatePayment } from "@/features/payment/hooks/use-create-payment"
+
+// Extend window type for Snap
+declare global {
+  interface Window {
+    snap?: {
+      pay: (
+        token: string,
+        options: {
+          onSuccess?: (result: any) => void;
+          onPending?: (result: any) => void;
+          onError?: (result: any) => void;
+          onClose?: () => void;
+        }
+      ) => void;
+    };
+  }
+}
 
 export default function CustomerCheckoutPage() {
   const { tableId } = useParams() as { tableId: string }
@@ -14,14 +32,11 @@ export default function CustomerCheckoutPage() {
 
   const { items, total, clear, updateQuantity } = useCart()
   const { mutateAsync: createOrder } = useCreatePublicOrder()
+  const createPayment = useCreatePayment()
 
   const [isProcessing, setIsProcessing] = useState(false)
-  const [isSuccess, setIsSuccess] = useState(false)
-  const [placedOrderId, setPlacedOrderId] = useState("")
   const [customerName, setCustomerName] = useState("")
 
-  // Estimate only — the cashier records the authoritative amount (same rates)
-  // when the customer pays at the counter.
   const { tax, service, totalPayment } = usePaymentCalculation(total)
 
   function formatPrice(cents: number) {
@@ -35,70 +50,63 @@ export default function CustomerCheckoutPage() {
   async function handlePlaceOrder() {
     if (items.length === 0) return
     if (!customerName.trim()) {
-      alert("Nama pemesan wajib diisi!")
+      alert("Customer name is required!")
+      return
+    }
+
+    if (!window.snap) {
+      alert('Payment system is loading. Please try again.')
       return
     }
 
     setIsProcessing(true)
+
     try {
+      // Step 1: Create order
       const response = await createOrder({
         tableId,
         items: items.map((i) => ({ menuId: i.menuId, quantity: i.quantity })),
         customerName: customerName.trim(),
       })
-      setPlacedOrderId(response?.id || "")
+      
+      const orderId = response?.id || ""
+      
+      if (!orderId) {
+        throw new Error("Order ID not found")
+      }
+
+      // Step 2: Create payment
+      const payment = await createPayment.mutateAsync({ orderId })
+
+      // Step 3: Clear cart
       clear()
-      setIsSuccess(true)
+
+      // Step 4: Open Midtrans payment
+      window.snap.pay(payment.snapToken, {
+        onSuccess: (result) => {
+          console.log('Payment success:', result)
+          router.push(`/payment/finish?order_id=${orderId}`)
+        },
+        onPending: (result) => {
+          console.log('Payment pending:', result)
+          router.push(`/payment/pending?order_id=${orderId}`)
+        },
+        onError: (result) => {
+          console.error('Payment error:', result)
+          router.push(`/payment/error?order_id=${orderId}`)
+        },
+        onClose: () => {
+          console.log('Payment popup closed')
+          // User closed the popup without completing payment
+          // Stay on cart page
+          setIsProcessing(false)
+        },
+      })
     } catch (error) {
       console.error(error)
-      alert("Gagal mengirim pesanan. Silakan coba lagi.")
-    } finally {
+      alert("Failed to process order. Please try again.")
       setIsProcessing(false)
     }
-  }
-
-  // --- SUCCESS: order placed, pay at counter ---
-  if (isSuccess) {
-    return (
-      <div className="mx-auto max-w-md min-h-screen bg-white flex flex-col items-center justify-center p-6 border-x border-neutral-200 text-center animate-in fade-in zoom-in-95 duration-300">
-        <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center text-green-500 mb-4 shadow-sm">
-          <CheckCircle2 className="w-10 h-10" />
-        </div>
-        <h2 className="text-xl font-bold text-neutral-950">Pesanan Diterima!</h2>
-        <p className="text-xs text-neutral-400 mt-1 max-w-xs">
-          Pesanan Anda telah dikirim ke dapur. Silakan lakukan pembayaran di
-          kasir.
-        </p>
-
-        <div className="w-full bg-neutral-50 rounded-xl p-4 my-6 text-left border border-neutral-100 space-y-2">
-          {placedOrderId && (
-            <div className="flex justify-between text-xs">
-              <span className="text-neutral-400">ID Pesanan</span>
-              <span className="font-mono font-medium text-neutral-700">
-                {placedOrderId.slice(0, 8).toUpperCase()}
-              </span>
-            </div>
-          )}
-          <div className="flex items-center gap-1.5 text-xs text-neutral-500">
-            <Store className="h-3.5 w-3.5" />
-            <span>Bayar di kasir</span>
-          </div>
-          <div className="flex justify-between text-xs border-t border-dashed pt-2 mt-2">
-            <span className="font-semibold text-neutral-800">Estimasi Total</span>
-            <span className="font-bold text-neutral-950 text-sm">
-              {formatPrice(totalPayment)}
-            </span>
-          </div>
-        </div>
-
-        <Button
-          className="w-full rounded-full font-bold bg-neutral-900 text-white"
-          onClick={() => router.push(`/${tableId}/menu`)}
-        >
-          Kembali ke Menu Utama
-        </Button>
-      </div>
-    )
   }
 
   if (items.length === 0) {
@@ -123,8 +131,8 @@ export default function CustomerCheckoutPage() {
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div>
-          <h1 className="font-bold text-sm text-neutral-800">Konfirmasi Pesanan</h1>
-          <p className="text-[10px] text-muted-foreground">Bayar di kasir setelah memesan</p>
+          <h1 className="font-bold text-sm text-neutral-800">Confirm Order</h1>
+          <p className="text-[10px] text-muted-foreground">Online payment automatic</p>
         </div>
       </header>
 
@@ -202,11 +210,10 @@ export default function CustomerCheckoutPage() {
           </div>
         </div>
 
-        <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 flex items-start gap-2">
-          <Store className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-          <p className="text-[11px] text-amber-700 leading-relaxed">
-            Setelah pesanan dikonfirmasi, silakan menuju kasir untuk melakukan
-            pembayaran. Total akhir akan dihitung oleh kasir.
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-start gap-2">
+          <CreditCard className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
+          <p className="text-[11px] text-blue-700 leading-relaxed">
+            Payment page will open automatically after you confirm your order. Choose payment method: QRIS, GoPay, ShopeePay, Bank Transfer, or Credit Card.
           </p>
         </div>
 
@@ -215,7 +222,7 @@ export default function CustomerCheckoutPage() {
       {/* STICKY BOTTOM ACTION BAR */}
       <div className="absolute bottom-0 left-0 right-0 z-40 bg-white border-t border-neutral-200 p-4 shadow-[0_-8px_30px_rgb(0,0,0,0.04)] flex items-center justify-between gap-4">
         <div className="flex flex-col">
-          <span className="text-[10px] font-medium text-neutral-400 uppercase tracking-wider">Estimasi Total</span>
+          <span className="text-[10px] font-medium text-neutral-400 uppercase tracking-wider">Estimated Total</span>
           <span className="font-extrabold text-base text-neutral-900">{formatPrice(totalPayment)}</span>
         </div>
 
@@ -228,10 +235,10 @@ export default function CustomerCheckoutPage() {
           {isProcessing ? (
             <>
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Mengirim...
+              Processing...
             </>
           ) : (
-            "Konfirmasi Pesanan"
+            "Order & Pay"
           )}
         </Button>
       </div>

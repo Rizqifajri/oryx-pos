@@ -42,6 +42,8 @@ export const createTransaction = async (
     serviceAmount: number;
     totalAmount: number;
     paymentMethod: string;
+    paymentRequestId?: string;
+    midtransTransactionId?: string;
   },
   tx: DbOrTx = db,
 ) => {

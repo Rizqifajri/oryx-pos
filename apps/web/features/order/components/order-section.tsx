@@ -85,7 +85,7 @@ function NextStatusButton({ order }: { order: Order }) {
             }
           }}
         >
-          {isFinishing ? "Processing..." : "Pesanan Selesai"}
+          {isFinishing ? "Processing..." : "Order Complete"}
         </Button>
       </PermissionGuard>
     )

@@ -8,6 +8,7 @@ import * as categoryRepo from "../category/category.repository";
 import * as customerRepo from "../customer/customer.repository";
 import * as menuRepo from "../menu/menu.repository";
 import * as tableRepo from "../table/table.repository";
+import * as tenantRepo from "../tenant/tenant.repository";
 import * as orderRepo from "./order.repository";
 import type {
   CreateOrderInput,
@@ -223,6 +224,9 @@ export const getPublicMenu = async (tableId: string) => {
   const table = await tableRepo.findTableById(tableId);
   if (!table) throw new AppError("Table not found", 404);
 
+  const tenant = await tenantRepo.findTenantById(table.tenantId);
+  if (!tenant) throw new AppError("Restaurant not found", 404);
+
   const categories = await categoryRepo.findCategoriesByTenantId(
     table.tenantId,
   );
@@ -238,6 +242,7 @@ export const getPublicMenu = async (tableId: string) => {
 
   return {
     table: { id: table.id, name: table.name, capacity: table.capacity },
+    tenant: { id: tenant.id, name: tenant.name },
     categories: filteredCategories,
     menus,
   };
@@ -250,8 +255,8 @@ export const createPublicOrder = async (input: PublicCreateOrderInput) => {
   if (input.tableId) {
     const table = await tableRepo.findTableById(input.tableId);
     if (!table) throw new AppError("Table not found", 404);
-    if (table.status === "OCCUPIED")
-      throw new AppError("Table is already occupied with an active order", 409);
+    // Note: For QR-code ordering, we allow multiple orders per table
+    // The table is just a delivery reference, not a reservation
     tenantId = table.tenantId;
   } else {
     // For orders without table, tenantId must be provided another way
@@ -310,13 +315,9 @@ export const createPublicOrder = async (input: PublicCreateOrderInput) => {
       tx,
     );
 
-    // Only update table status if tableId is provided
-    if (input.tableId) {
-      await tx
-        .update(tables)
-        .set({ status: "OCCUPIED" })
-        .where(eq(tables.id, input.tableId));
-    }
+    // Note: For public QR-code orders, we don't mark the table as OCCUPIED
+    // This allows multiple orders per table and incremental ordering
+    // Table status is managed by staff in the dashboard if needed
 
     return order;
   });
