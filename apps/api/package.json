@@ -1,0 +1,40 @@
+{
+  "name": "api",
+  "version": "0.0.0",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "nest build",
+    "check-types": "tsc -p tsconfig.json --noEmit",
+    "dev": "nest start --watch",
+    "r2:cors": "tsx src/scripts/set-r2-cors.ts",
+    "start": "node dist/main"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1127.0",
+    "@aws-sdk/s3-request-presigner": "^3.1136.0",
+    "@dio-sys-be/db": "*",
+    "@dio-sys-be/env": "*",
+    "@nestjs/common": "^11.1.6",
+    "@nestjs/core": "^11.1.6",
+    "@nestjs/platform-express": "^11.1.6",
+    "bcrypt": "^5.1.1",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "jose": "^5.9.6",
+    "midtrans-client": "^1.3.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@dio-sys-be/config": "*",
+    "@nestjs/cli": "^11.0.10",
+    "@nestjs/schematics": "^11.0.8",
+    "@types/bcrypt": "^5.0.2",
+    "@types/express": "^5.0.1",
+    "@types/node": "^22.13.14",
+    "tsx": "^4.19.2",
+    "typescript": "^6"
+  }
+}

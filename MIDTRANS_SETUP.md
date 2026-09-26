@@ -5,14 +5,14 @@
 ### 1. Install Dependencies
 
 ```bash
-cd apps/server
+cd apps/api
 npm install midtrans-client
 npm install -D @types/midtrans-client
 ```
 
 ### 2. Configure Environment Variables
 
-Add these to `apps/server/.env`:
+Add these to `apps/api/.env`:
 
 ```env
 # Midtrans Payment Gateway

@@ -15,3 +15,12 @@ export function createDb() {
 }
 
 export const db = createDb();
+
+export type Db = typeof db;
+
+/**
+ * Either the pooled connection or an open transaction handle. Repository
+ * methods take this so the same query can run standalone or inside
+ * `db.transaction(...)`.
+ */
+export type DbOrTx = Db | Parameters<Parameters<typeof db.transaction>[0]>[0];

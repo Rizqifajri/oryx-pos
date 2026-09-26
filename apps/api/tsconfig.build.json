@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Only src/ is compiled here, so the output is dist/main.js rather than
+    // dist/src/main.js.
+    "rootDir": "./src"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "api", "**/*.spec.ts"]
+}
