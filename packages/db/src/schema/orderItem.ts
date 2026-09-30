@@ -1,4 +1,4 @@
-import { integer, pgTable, uuid } from "drizzle-orm/pg-core";
+import { integer, pgTable, text, uuid } from "drizzle-orm/pg-core";
 import { menus } from "./menu";
 import { orders } from "./order";
 
@@ -12,4 +12,6 @@ export const orderItems = pgTable("order_items", {
     .notNull(),
   quantity: integer("quantity").notNull(),
   price: integer("price").notNull(),
+  // Guest instruction for the kitchen, e.g. "tidak pedas".
+  note: text("note"),
 });

@@ -14,11 +14,11 @@
 import { Pool } from "@neondatabase/serverless";
 import dotenv from "dotenv";
 
-dotenv.config({ path: "../../apps/server/.env" });
+dotenv.config({ path: "../../apps/api/.env" });
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not set");
 
 // Permissions that only a GLOBAL (super-admin) role may hold. Mirrors
-// apps/server/src/constants/permissions.ts GLOBAL_ONLY_PERMISSIONS.
+// apps/api/src/common/constants/permissions.ts GLOBAL_ONLY_PERMISSIONS.
 const GLOBAL_ONLY = [
   "tenant:view",
   "tenant:create",

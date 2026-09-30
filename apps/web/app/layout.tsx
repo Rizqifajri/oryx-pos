@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Poppins, Geist_Mono, Geist } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Providers } from "@/components/providers";
@@ -26,6 +27,14 @@ export default function RootLayout({
       lang="en"
       className={cn("h-full", "antialiased", geistMono.variable, "font-sans", geist.variable)}
     >
+      <head>
+        {/* Midtrans Snap Payment Gateway Script */}
+        <Script
+          src="https://app.sandbox.midtrans.com/snap/snap.js"
+          data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
+          strategy="lazyOnload"
+        />
+      </head>
       <body className="min-h-full flex flex-col"><Providers>{children}</Providers></body>
     </html>
   );

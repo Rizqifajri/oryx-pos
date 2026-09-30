@@ -1,7 +1,25 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { BookOpen, FolderOpen, ShoppingCart, Users, UtensilsCrossed } from "lucide-react"
+import Link from "next/link"
+import {
+  BellRing,
+  BookOpen,
+  FolderOpen,
+  LayoutGrid,
+  Monitor,
+  ReceiptText,
+  ShoppingCart,
+  Users,
+  UtensilsCrossed,
+  Wallet,
+} from "lucide-react"
+import { formatIdr } from "@/lib/format"
+import {
+  useActiveSessions,
+  useServiceRequests,
+} from "@/features/table/hooks/use-table-sessions"
+import { useTables } from "@/features/table/hooks/use-tables"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getStoredUser } from "@/features/auth/hooks/use-auth"
@@ -19,6 +37,11 @@ export function TenantDashboardPage() {
   }, [])
 
   const { stats, isLoading, isError } = useTenantDashboardStats(tenantId ?? "", !!tenantId)
+  const { data: sessions = [], isLoading: loadingFloor } = useActiveSessions()
+  const { data: requests = [] } = useServiceRequests()
+  const { data: tables = [] } = useTables()
+  const paying = sessions.filter((s) => s.status === "billing")
+  const openBillValue = sessions.reduce((sum, s) => sum + s.bill.totalAmount, 0)
 
   if (!tenantId) {
     return (
@@ -42,6 +65,54 @@ export function TenantDashboardPage() {
           Failed to load restaurant data. Check your connection and permissions.
         </div>
       )}
+
+      <section aria-labelledby="floor-heading" className="space-y-3">
+        <h2 id="floor-heading" className="text-sm font-medium text-muted-foreground">
+          Floor now · updates every 10 seconds
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Link href="/tables" className="rounded-xl focus-visible:ring-2 focus-visible:ring-ring">
+            <StatCard
+              title="Occupied tables"
+              value={`${sessions.length}/${tables.length}`}
+              description="Open tabs from POS and QR"
+              icon={LayoutGrid}
+              loading={loadingFloor}
+            />
+          </Link>
+          <Link href="/tables" className="rounded-xl focus-visible:ring-2 focus-visible:ring-ring">
+            <StatCard
+              title="Awaiting payment"
+              value={paying.length}
+              description={
+                paying.length
+                  ? paying.map((s) => s.tableName).join(", ")
+                  : "No table is paying right now"
+              }
+              icon={ReceiptText}
+              loading={loadingFloor}
+            />
+          </Link>
+          <Link href="/tables" className="rounded-xl focus-visible:ring-2 focus-visible:ring-ring">
+            <StatCard
+              title="Open bills"
+              value={formatIdr(openBillValue)}
+              description="Incl. tax and service, not yet paid"
+              icon={Wallet}
+              loading={loadingFloor}
+            />
+          </Link>
+          <Link href="/order" className="rounded-xl focus-visible:ring-2 focus-visible:ring-ring">
+            <StatCard
+              title="Guest requests"
+              value={requests.length}
+              description={requests.length ? "Waiting on the Orders page" : "All handled"}
+              icon={BellRing}
+              loading={loadingFloor}
+            />
+          </Link>
+        </div>
+      </section>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
@@ -133,13 +204,24 @@ export function TenantDashboardPage() {
           />
         )}
 
-        <Card size="sm" className="shadow-sm flex items-center justify-center">
-          <CardContent className="flex flex-col items-center gap-2 py-8 text-center">
-            <BookOpen className="size-8 text-muted-foreground" />
-            <p className="text-sm font-medium">Quick links</p>
-            <p className="text-xs text-muted-foreground">
-              Manage menu, inventory, and orders from the sidebar.
-            </p>
+        <Card size="sm" className="shadow-sm">
+          <CardContent className="space-y-1 pt-4">
+            <p className="mb-2 text-sm font-medium">Quick actions</p>
+            {[
+              { href: "/pos", label: "Take an order", icon: Monitor },
+              { href: "/tables", label: "Tables & QR codes", icon: LayoutGrid },
+              { href: "/order", label: "Kitchen board", icon: ShoppingCart },
+              { href: "/payments", label: "Payments", icon: Wallet },
+              { href: "/menu", label: "Edit menu", icon: BookOpen },
+            ].map(({ href, label, icon: Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+              >
+                <Icon className="size-4 text-muted-foreground" /> {label}
+              </Link>
+            ))}
           </CardContent>
         </Card>
       </div>
