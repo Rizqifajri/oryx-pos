@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+/** Image badge on the public table menu. */
+export const menuBadgeEnum = z.enum(["chef_pick", "best_seller", "new", "spicy"]);
+
 export const createMenuSchema = z.object({
   tenantId: z.string().uuid(),
   categoryId: z.string().uuid(),
@@ -8,6 +11,8 @@ export const createMenuSchema = z.object({
   price: z.number().int().positive(),
   imageUrl: z.string().url(),
   isAvailable: z.boolean().default(true),
+  isPopular: z.boolean().default(false),
+  badge: menuBadgeEnum.nullable().optional(),
 });
 
 export const updateMenuSchema = z.object({
@@ -17,6 +22,8 @@ export const updateMenuSchema = z.object({
   price: z.number().int().positive().optional(),
   imageUrl: z.string().url().optional(),
   isAvailable: z.boolean().optional(),
+  isPopular: z.boolean().optional(),
+  badge: menuBadgeEnum.nullable().optional(),
 });
 
 export const toggleAvailabilitySchema = z.object({

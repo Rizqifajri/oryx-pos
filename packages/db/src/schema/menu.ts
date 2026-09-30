@@ -23,6 +23,10 @@ export const menus = pgTable("menus", {
   price: integer("price").notNull(),
   imageUrl: text("image_url"),
   isAvailable: boolean("is_available").notNull(),
+  // Listed under the virtual "Populer" category on the public menu.
+  isPopular: boolean("is_popular").notNull().default(false),
+  // Optional image badge: chef_pick | best_seller | new | spicy.
+  badge: text("badge"),
   createdAt: date("created_at").notNull().defaultNow(),
   // Soft delete: non-null means the menu is deleted and hidden from listings,
   // while the row stays so order history can still resolve its name.

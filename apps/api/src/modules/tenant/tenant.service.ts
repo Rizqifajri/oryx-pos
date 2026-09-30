@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { AppError } from "../../common/errors/app-error";
+import { SessionEventsService } from "../../common/realtime/session-events.service";
 import type { UserContext } from "../../common/types/user-context";
 import { assertGlobalScope } from "../../common/utils/assert-permission";
 import { TenantRepository } from "./tenant.repository";
@@ -23,7 +24,10 @@ const generateRandomSuffix = (length: number): string => {
 
 @Injectable()
 export class TenantService {
-  constructor(private readonly tenantRepo: TenantRepository) {}
+  constructor(
+    private readonly tenantRepo: TenantRepository,
+    private readonly events: SessionEventsService,
+  ) {}
 
   async listTenants(ctx: UserContext) {
     // Permission check now handled by route middleware
@@ -109,7 +113,10 @@ export class TenantService {
       }
     }
 
-    return await this.tenantRepo.updateTenant(id, input);
+    const updated = await this.tenantRepo.updateTenant(id, input);
+    // Open guest menus pick up the new name/tagline/"accepting orders" flag.
+    this.events.notifyTenant(id, "tenant.updated");
+    return updated;
   }
 
   async updateMyTenant(ctx: UserContext, input: UpdateTenantInput) {
@@ -131,7 +138,9 @@ export class TenantService {
       }
     }
 
-    return await this.tenantRepo.updateTenant(ctx.tenantId, input);
+    const updated = await this.tenantRepo.updateTenant(ctx.tenantId, input);
+    this.events.notifyTenant(ctx.tenantId, "tenant.updated");
+    return updated;
   }
 
   async deleteTenant(ctx: UserContext, id: string) {

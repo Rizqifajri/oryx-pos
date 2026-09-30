@@ -35,7 +35,15 @@ export class TenantRepository {
     return result[0];
   }
 
-  async updateTenant(id: string, data: { name?: string; slug?: string }) {
+  async updateTenant(
+    id: string,
+    data: {
+      name?: string;
+      slug?: string;
+      tagline?: string | null;
+      isOpen?: boolean;
+    },
+  ) {
     const result = await this.db
       .update(tenants)
       .set(data)

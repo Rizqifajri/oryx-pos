@@ -10,10 +10,11 @@ export function usePaymentStatus(orderId: string | null) {
   });
 }
 
-export function usePaymentsList(status?: string) {
+export function usePaymentsList(status?: string, enabled = true) {
   return useQuery({
     queryKey: ['payments', { status }],
     queryFn: () => paymentApi.listPayments({ status }),
+    enabled,
     refetchInterval: 10000, // Refresh every 10 seconds
   });
 }

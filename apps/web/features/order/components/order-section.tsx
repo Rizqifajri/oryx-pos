@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { toast } from "sonner"
+import { QrCode } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
@@ -8,6 +10,7 @@ import { PermissionGuard } from "@/components/guards"
 import { PERMISSIONS } from "@/constants/permissions"
 
 import { useOrders, useUpdateOrderStatus, useCreateTransaction } from "../hooks/use-orders"
+import { ServiceRequestsPanel } from "./service-requests-panel"
 import type { Order, OrderStatus } from "../types"
 
 const STATUS_TABS: { label: string; value: OrderStatus | "ALL" }[] = [
@@ -63,6 +66,21 @@ function NextStatusButton({ order }: { order: Order }) {
           onClick={() => updateStatus({ id: order.id, status: "PROCESSING" })}
         >
           Process
+        </Button>
+      </PermissionGuard>
+    )
+  }
+  // Guest QR orders are paid once for the whole table (Tables → Settle), so
+  // finishing one only marks it served.
+  if (order.status === "PROCESSING" && order.sessionId) {
+    return (
+      <PermissionGuard permissions={PERMISSIONS.ORDER_UPDATE}>
+        <Button
+          size="sm"
+          disabled={isUpdating}
+          onClick={() => updateStatus({ id: order.id, status: "COMPLETED" })}
+        >
+          Served
         </Button>
       </PermissionGuard>
     )
@@ -131,8 +149,26 @@ export function OrderSection({ tenantId }: OrderSectionProps = {}) {
 
   const { data: orders = [], isLoading } = useOrders(hasFilters ? filters : undefined)
 
+  // Chime-less heads-up when a new order lands between refreshes.
+  const seenIds = useRef<Set<string> | null>(null)
+  useEffect(() => {
+    if (isLoading) return
+    const ids = new Set(orders.map((o) => o.id))
+    if (seenIds.current) {
+      const fresh = orders.filter((o) => o.status === "NEW" && !seenIds.current!.has(o.id))
+      for (const o of fresh) {
+        toast.info(`New order${o.tableName ? ` · ${o.tableName}` : ""}`, {
+          description: `${o.items.length} item(s)${o.sessionId ? " · QR" : ""}`,
+        })
+      }
+    }
+    seenIds.current = ids
+  }, [orders, isLoading])
+
   return (
     <div className="space-y-4">
+      <ServiceRequestsPanel tenantId={tenantId} />
+
       <div className="flex gap-1 border-b">
         {STATUS_TABS.map((tab) => (
           <button
@@ -191,6 +227,11 @@ export function OrderSection({ tenantId }: OrderSectionProps = {}) {
               <tr key={order.id} className="border-b last:border-0 hover:bg-muted/30">
                 <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                   #{order.id.slice(-6).toUpperCase()}
+                  {order.sessionId && (
+                    <span className="ml-1.5 inline-flex items-center gap-0.5 rounded bg-muted px-1 py-0.5 font-sans text-[10px] font-medium text-foreground">
+                      <QrCode className="size-3" /> QR
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3 font-bold text-lg">
                   <span className="text-2xl font-bold">
@@ -199,13 +240,26 @@ export function OrderSection({ tenantId }: OrderSectionProps = {}) {
                 </td>
                 <td className="px-4 py-3">
                   <span className="font-medium text-blue-600">
-                    {order.customerName || 'Guest'}
+                    {order.customerName || (order.sessionId ? "Table guest" : "Guest")}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">
-                  {order.items.length} {order.items.length === 1 ? "item" : "items"}
-                  {order.notes && (
-                    <p className="text-xs italic truncate max-w-32">{order.notes}</p>
+                  {order.sessionId ? (
+                    <ul className="space-y-0.5 text-xs">
+                      {order.items.map((item: Order["items"][number]) => (
+                        <li key={item.id}>
+                          <span className="font-medium text-foreground">{item.quantity}× {item.menuName}</span>
+                          {item.note && <span className="block italic">“{item.note}”</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <>
+                      {order.items.length} {order.items.length === 1 ? "item" : "items"}
+                    </>
+                  )}
+                  {order.note && (
+                    <p className="mt-1 max-w-48 text-xs italic">Note: {order.note}</p>
                   )}
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums font-medium">
@@ -220,7 +274,7 @@ export function OrderSection({ tenantId }: OrderSectionProps = {}) {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">
-                  {formatTime(order.createdAt)}
+                  {formatTime(order.submittedAt ?? order.createdAt)}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-1">

@@ -74,6 +74,20 @@ export class TableController {
     };
   }
 
+  @Get(":id/qr")
+  @RequirePermissions("table:view")
+  async getQr(@CurrentUser() user: UserContext, @Param("id") id: string) {
+    const data = await this.tableService.getQr(user, id);
+    return { success: true, data };
+  }
+
+  @Post(":id/rotate-qr")
+  @RequirePermissions("table:manage", "table:update")
+  async rotateQr(@CurrentUser() user: UserContext, @Param("id") id: string) {
+    const data = await this.tableService.rotateQr(user, id);
+    return { success: true, data };
+  }
+
   @Post()
   @RequirePermissions("table:manage", "table:create")
   async createTable(

@@ -25,3 +25,25 @@ export const computePriceBreakdown = (subtotal: number): PriceBreakdown => {
     totalAmount: subtotal + taxAmount + serviceAmount,
   };
 };
+
+/**
+ * Totals for a table bill: the sum of each non-cancelled order's breakdown.
+ * Summing per order (rather than taxing the combined subtotal) keeps the bill
+ * equal, to the cent, to the Transactions recorded per order when it is paid.
+ */
+export const computeBillTotals = (
+  orders: { status: string; totalPrice: number }[],
+): PriceBreakdown => {
+  return orders
+    .filter((order) => order.status !== "CANCELED")
+    .map((order) => computePriceBreakdown(order.totalPrice))
+    .reduce<PriceBreakdown>(
+      (sum, b) => ({
+        subtotal: sum.subtotal + b.subtotal,
+        taxAmount: sum.taxAmount + b.taxAmount,
+        serviceAmount: sum.serviceAmount + b.serviceAmount,
+        totalAmount: sum.totalAmount + b.totalAmount,
+      }),
+      { subtotal: 0, taxAmount: 0, serviceAmount: 0, totalAmount: 0 },
+    );
+};

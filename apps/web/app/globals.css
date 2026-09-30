@@ -129,3 +129,78 @@
     @apply bg-background text-foreground;
     }
 }
+/* ─── Public table menu (/order/…) ─────────────────────────────────────────
+   Warm café palette from docs/public-table-menu-design.md. Prefixed `pm-` so
+   the utilities (bg-pm-ink, text-pm-muted…) never collide with shadcn tokens.
+   Light-only until a dark spec exists. */
+@theme {
+    --color-pm-bg: #F6F4EF;
+    --color-pm-surface: #FFFFFF;
+    --color-pm-surface-muted: #EFECE5;
+    --color-pm-ink: #141414;
+    --color-pm-muted: #6F6B64;
+    --color-pm-subtle: #A19C93;
+    --color-pm-line: #E7E3DB;
+    --color-pm-amber-bg: #F6E3A8;
+    --color-pm-amber-fg: #7A5B12;
+    --color-pm-accent: #8C7A3B;
+    --color-pm-success: #3DA35D;
+    --color-pm-best: #4E7A55;
+    --color-pm-danger: #C2412D;
+    --shadow-pm-card: 0 1px 2px rgb(20 20 20 / 0.04);
+    --shadow-pm-float: 0 8px 24px rgb(20 20 20 / 0.18);
+}
+
+/* Applied to the route wrapper and to every portaled sheet/dialog, so shadcn
+   primitives inherit the look. The app scales <html> to 125%, which would
+   inflate rem-based spacing; the design is specified in px, so the spacing
+   unit is pinned to 4px here (Tailwind v4 reads --spacing at runtime). */
+.public-menu {
+    --spacing: 4px;
+    --background: #F6F4EF;
+    --foreground: #141414;
+    --card: #FFFFFF;
+    --card-foreground: #141414;
+    --popover: #FFFFFF;
+    --popover-foreground: #141414;
+    --primary: #141414;
+    --primary-foreground: #FFFFFF;
+    --secondary: #EFECE5;
+    --secondary-foreground: #141414;
+    --muted: #EFECE5;
+    --muted-foreground: #6F6B64;
+    --accent: #EFECE5;
+    --accent-foreground: #141414;
+    --destructive: #C2412D;
+    --border: #E7E3DB;
+    --input: #E7E3DB;
+    --ring: #141414;
+    --radius: 12px;
+    color-scheme: light;
+    font-family: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.public-menu :focus-visible {
+    outline: 2px solid #141414;
+    outline-offset: 2px;
+}
+
+.pm-no-scrollbar {
+    scrollbar-width: none;
+}
+.pm-no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+@keyframes pm-cart-in {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.pm-cart-in {
+    animation: pm-cart-in 220ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+    .pm-cart-in { animation: none; }
+    .public-menu * { scroll-behavior: auto !important; }
+}

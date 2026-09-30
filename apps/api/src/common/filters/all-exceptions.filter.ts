@@ -26,6 +26,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
       response.status(exception.statusCode).json({
         success: false,
         message: exception.message,
+        ...(exception.code && { code: exception.code }),
+        ...(exception.details !== undefined && { details: exception.details }),
       });
       return;
     }

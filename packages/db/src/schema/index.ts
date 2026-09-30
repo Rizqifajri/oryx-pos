@@ -1,3 +1,4 @@
+export * from "./bill";
 export * from "./category";
 export * from "./customer";
 export * from "./menu";
@@ -7,7 +8,9 @@ export * from "./payment-request";
 export * from "./permission";
 export * from "./role";
 export * from "./rolePermission";
+export * from "./service-request";
 export * from "./table";
+export * from "./table-session";
 export * from "./tenant";
 export * from "./transaction";
 export * from "./user";

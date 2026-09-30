@@ -56,6 +56,7 @@ export function useCreateMenu(filterTenantId?: string | null) {
         imageUrl: values.imageUrl || undefined,
         description: values.description || undefined,
         isAvailable: values.isAvailable ?? true,
+        badge: values.badge || null,
       }
       return api.post<Menu>("/menus", payload)
     },
@@ -75,6 +76,7 @@ export function useUpdateMenu() {
         price: values.price !== undefined ? Math.round(values.price * 100) : undefined,
         imageUrl: values.imageUrl || undefined,
         description: values.description || undefined,
+        badge: values.badge === undefined ? undefined : values.badge || null,
       }
       return api.patch<Menu>(`/menus/${id}`, payload)
     },

@@ -76,6 +76,8 @@ export class MenuRepository {
     price: number;
     imageUrl: string;
     isAvailable: boolean;
+    isPopular?: boolean;
+    badge?: string | null;
   }) {
     const result = await this.db.insert(menus).values(data).returning();
     return result[0];
@@ -90,6 +92,8 @@ export class MenuRepository {
       price?: number;
       imageUrl?: string;
       isAvailable?: boolean;
+      isPopular?: boolean;
+      badge?: string | null;
     },
   ) {
     const result = await this.db

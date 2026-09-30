@@ -8,6 +8,7 @@ import { PaymentRepository } from "../modules/payment/payment.repository";
 import { PermissionRepository } from "../modules/permission/permission.repository";
 import { RoleRepository } from "../modules/role/role.repository";
 import { TableRepository } from "../modules/table/table.repository";
+import { TableSessionRepository } from "../modules/table-session/table-session.repository";
 import { TenantRepository } from "../modules/tenant/tenant.repository";
 import { TransactionRepository } from "../modules/transaction/transaction.repository";
 import { UserRepository } from "../modules/user/user.repository";
@@ -22,6 +23,7 @@ const repositories = [
   PermissionRepository,
   RoleRepository,
   TableRepository,
+  TableSessionRepository,
   TenantRepository,
   TransactionRepository,
   UserRepository,

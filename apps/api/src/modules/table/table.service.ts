@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import { Injectable } from "@nestjs/common";
 import { AppError } from "../../common/errors/app-error";
 import type { UserContext } from "../../common/types/user-context";
@@ -141,6 +142,32 @@ export class TableService {
     }
 
     return await this.tableRepo.updateTable(id, { status });
+  }
+
+  /** Pieces the dashboard needs to build the table's public QR URL. */
+  async getQr(ctx: UserContext, id: string) {
+    const table = await this.getTable(ctx, id);
+    const tenant = await this.tenantRepo.findTenantById(table.tenantId);
+    if (!tenant) throw new AppError("Tenant not found", 404);
+    return {
+      tableId: table.id,
+      tableName: table.name,
+      tenantSlug: tenant.slug,
+      qrToken: table.qrToken,
+      path: `/order/${tenant.slug}/${table.qrToken}`,
+    };
+  }
+
+  /**
+   * Issues a new QR token. Previously printed codes stop working; guests
+   * already seated keep their session.
+   */
+  async rotateQr(ctx: UserContext, id: string) {
+    await this.getTable(ctx, id);
+    await this.tableRepo.updateTable(id, {
+      qrToken: randomBytes(32).toString("base64url"),
+    });
+    return await this.getQr(ctx, id);
   }
 
   async deleteTable(ctx: UserContext, id: string) {

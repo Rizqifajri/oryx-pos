@@ -1,22 +1,33 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { Db, DbOrTx } from "@dio-sys-be/db";
-import { transactions } from "@dio-sys-be/db/schema";
-import { eq } from "drizzle-orm";
+import { orders, tables, transactions } from "@dio-sys-be/db/schema";
+import { desc, eq, getTableColumns } from "drizzle-orm";
 import { DRIZZLE } from "../../database/database.module";
 
 @Injectable()
 export class TransactionRepository {
   constructor(@Inject(DRIZZLE) private readonly db: Db) {}
 
+  /** Listing shape: the transaction plus where it was served (table/session). */
+  private listQuery() {
+    return this.db
+      .select({
+        ...getTableColumns(transactions),
+        tableName: tables.name,
+        sessionId: orders.sessionId,
+      })
+      .from(transactions)
+      .innerJoin(orders, eq(transactions.orderId, orders.id))
+      .leftJoin(tables, eq(orders.tableId, tables.id))
+      .orderBy(desc(transactions.createdAt));
+  }
+
   async findAllTransactions() {
-    return await this.db.select().from(transactions);
+    return await this.listQuery();
   }
 
   async findTransactionsByTenantId(tenantId: string) {
-    return await this.db
-      .select()
-      .from(transactions)
-      .where(eq(transactions.tenantId, tenantId));
+    return await this.listQuery().where(eq(transactions.tenantId, tenantId));
   }
 
   async findTransactionById(id: string) {

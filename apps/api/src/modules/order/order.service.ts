@@ -1,21 +1,18 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { Db } from "@dio-sys-be/db";
-import { tables } from "@dio-sys-be/db/schema";
-import { eq } from "drizzle-orm";
 import { AppError } from "../../common/errors/app-error";
+import { SessionEventsService } from "../../common/realtime/session-events.service";
 import type { UserContext } from "../../common/types/user-context";
 import { assertTenantMatch } from "../../common/utils/assert-permission";
 import { DRIZZLE } from "../../database/database.module";
-import { CategoryRepository } from "../category/category.repository";
 import { CustomerRepository } from "../customer/customer.repository";
 import { MenuRepository } from "../menu/menu.repository";
 import { TableRepository } from "../table/table.repository";
-import { TenantRepository } from "../tenant/tenant.repository";
+import { TableSessionRepository } from "../table-session/table-session.repository";
 import { OrderRepository } from "./order.repository";
 import type {
   CreateOrderInput,
   OrderStatus,
-  PublicCreateOrderInput,
   UpdateOrderStatusInput,
 } from "./order.schema";
 
@@ -31,11 +28,11 @@ export class OrderService {
   constructor(
     @Inject(DRIZZLE) private readonly db: Db,
     private readonly orderRepo: OrderRepository,
-    private readonly categoryRepo: CategoryRepository,
     private readonly customerRepo: CustomerRepository,
     private readonly menuRepo: MenuRepository,
     private readonly tableRepo: TableRepository,
-    private readonly tenantRepo: TenantRepository,
+    private readonly sessionRepo: TableSessionRepository,
+    private readonly events: SessionEventsService,
   ) {}
 
   async listOrders(
@@ -111,17 +108,24 @@ export class OrderService {
         );
     }
 
-    // Only validate table if tableId is provided
+    // A dine-in order joins the table's session (opening one if needed), so
+    // POS rounds and guest QR rounds share one bill that is settled once from
+    // Tables. Takeout/walk-in orders (no table) keep the per-order payment flow.
+    let sessionId: string | null = null;
     if (input.tableId) {
       const table = await this.tableRepo.findTableById(input.tableId);
       if (!table) throw new AppError("Table not found", 404);
       if (table.tenantId !== input.tenantId)
         throw new AppError("Table does not belong to this tenant", 400);
-      if (table.status === "OCCUPIED")
+      const { session } = await this.sessionRepo.findOrOpenSession(table);
+      if (session.status !== "open") {
         throw new AppError(
-          "Table is already occupied with an active order",
+          "This table's bill is being paid. Unlock it from Tables before adding orders.",
           409,
+          { code: "BILL_LOCKED" },
         );
+      }
+      sessionId = session.id;
     }
 
     // Handle customer - support both customerId and customerName
@@ -164,29 +168,42 @@ export class OrderService {
       0,
     );
 
-    return await this.db.transaction(async (tx) => {
-      const order = await this.orderRepo.createOrderWithItems(
+    const order = await this.db.transaction(async (tx) => {
+      if (sessionId) {
+        // Re-check under the row lock: the bill may have been locked meanwhile.
+        const session = await this.sessionRepo.lockSession(sessionId, tx);
+        if (session?.status !== "open") {
+          throw new AppError(
+            "This table's bill is being paid. Unlock it from Tables before adding orders.",
+            409,
+            { code: "BILL_LOCKED" },
+          );
+        }
+      }
+      return await this.orderRepo.createOrderWithItems(
         {
           tenantId: input.tenantId,
           tableId: input.tableId ?? null,
           customerId: customerId,
           totalPrice,
           paymentMethod: input.paymentMethod ?? null,
+          sessionId,
         },
         resolvedItems,
         tx,
       );
-
-      // Only update table status if tableId is provided
-      if (input.tableId) {
-        await tx
-          .update(tables)
-          .set({ status: "OCCUPIED" })
-          .where(eq(tables.id, input.tableId));
-      }
-
-      return order;
     });
+
+    // Guests at the table see the staff-added round on their bill.
+    if (sessionId) {
+      this.events.emit({
+        type: "order.updated",
+        tenantId: order.tenantId,
+        sessionId,
+        data: { orderId: order.id },
+      });
+    }
+    return { ...order, sessionId };
   }
 
   async updateOrderStatus(
@@ -212,9 +229,20 @@ export class OrderService {
     const updated = await this.orderRepo.updateOrderStatus(id, input.status);
 
     // Only free the table on CANCELED — COMPLETED orders still need payment (transaction)
-    // And only if the order has a table assigned
-    if (input.status === "CANCELED" && order.tableId) {
+    // And only if the order has a table assigned. A guest session keeps its
+    // table until the session closes, whatever happens to one of its orders.
+    if (input.status === "CANCELED" && order.tableId && !order.sessionId) {
       await this.tableRepo.updateTable(order.tableId, { status: "AVAILABLE" });
+    }
+
+    // Push the kitchen progress to the guests' phones.
+    if (order.sessionId) {
+      this.events.emit({
+        type: "order.updated",
+        tenantId: order.tenantId,
+        sessionId: order.sessionId,
+        data: { orderId: id, status: input.status },
+      });
     }
 
     return updated;
@@ -232,6 +260,10 @@ export class OrderService {
       throw new AppError("Only NEW orders can be deleted", 400);
     }
 
+    if (order.sessionId) {
+      throw new AppError("Guest table orders are canceled, not deleted", 400);
+    }
+
     await this.orderRepo.deleteOrder(id);
 
     // Free the table now that the order is gone (only if order has a table)
@@ -240,108 +272,5 @@ export class OrderService {
     }
 
     return order;
-  }
-
-  async getPublicMenu(tableId: string) {
-    const table = await this.tableRepo.findTableById(tableId);
-    if (!table) throw new AppError("Table not found", 404);
-
-    const tenant = await this.tenantRepo.findTenantById(table.tenantId);
-    if (!tenant) throw new AppError("Restaurant not found", 404);
-
-    const categories = await this.categoryRepo.findCategoriesByTenantId(
-      table.tenantId,
-    );
-    const menus = await this.menuRepo.findMenusByFilters({
-      tenantId: table.tenantId,
-      isAvailable: true,
-    });
-
-    const menuCategoryIds = new Set(menus.map((m) => m.categoryId));
-    const filteredCategories = categories.filter((c) =>
-      menuCategoryIds.has(c.id),
-    );
-
-    return {
-      table: { id: table.id, name: table.name, capacity: table.capacity },
-      tenant: { id: tenant.id, name: tenant.name },
-      categories: filteredCategories,
-      menus,
-    };
-  }
-
-  async createPublicOrder(input: PublicCreateOrderInput) {
-    // Validate table only if tableId is provided
-    let tenantId: string;
-
-    if (input.tableId) {
-      const table = await this.tableRepo.findTableById(input.tableId);
-      if (!table) throw new AppError("Table not found", 404);
-      // Note: For QR-code ordering, we allow multiple orders per table
-      // The table is just a delivery reference, not a reservation
-      tenantId = table.tenantId;
-    } else {
-      // For orders without table, tenantId must be provided another way
-      // This might need adjustment based on your public order flow
-      throw new AppError("Table ID is required for public orders", 400);
-    }
-
-    const resolvedItems = await Promise.all(
-      input.items.map(async (item) => {
-        const menu = await this.menuRepo.findMenuById(item.menuId);
-        if (!menu) throw new AppError(`Menu item ${item.menuId} not found`, 404);
-        if (menu.tenantId !== tenantId)
-          throw new AppError(
-            `Menu item ${item.menuId} does not belong to this tenant`,
-            400,
-          );
-        if (!menu.isAvailable)
-          throw new AppError(`Menu item "${menu.name}" is not available`, 400);
-        return { ...item, price: menu.price };
-      }),
-    );
-
-    const totalPrice = resolvedItems.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0,
-    );
-
-    let customerId: string | null = null;
-
-    if (input.customerName) {
-      let customer = null;
-
-      if (input.customerPhone) {
-        customer = await this.customerRepo.findCustomerByPhoneAndTenant(
-          input.customerPhone,
-          tenantId,
-        );
-      }
-
-      if (!customer) {
-        customer = await this.customerRepo.createCustomer({
-          tenantId,
-          name: input.customerName,
-          phone: input.customerPhone ?? null,
-          email: input.customerEmail ?? null,
-        });
-      }
-
-      customerId = customer?.id ?? null;
-    }
-
-    return await this.db.transaction(async (tx) => {
-      const order = await this.orderRepo.createOrderWithItems(
-        { tenantId, tableId: input.tableId ?? null, customerId, totalPrice },
-        resolvedItems,
-        tx,
-      );
-
-      // Note: For public QR-code orders, we don't mark the table as OCCUPIED
-      // This allows multiple orders per table and incremental ordering
-      // Table status is managed by staff in the dashboard if needed
-
-      return order;
-    });
   }
 }

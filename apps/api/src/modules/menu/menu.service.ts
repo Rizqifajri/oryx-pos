@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { AppError } from "../../common/errors/app-error";
+import { SessionEventsService } from "../../common/realtime/session-events.service";
 import { deleteFromR2ByUrl } from "../../common/lib/r2";
 import type { UserContext } from "../../common/types/user-context";
 import { assertTenantMatch } from "../../common/utils/assert-permission";
@@ -18,7 +19,14 @@ export class MenuService {
     private readonly menuRepo: MenuRepository,
     private readonly categoryRepo: CategoryRepository,
     private readonly tenantRepo: TenantRepository,
+    private readonly events: SessionEventsService,
   ) {}
+
+  /** Open guest QR menus refetch when the catalog changes. */
+  private notify<T>(tenantId: string, result: T): T {
+    this.events.notifyTenant(tenantId, "menu.updated");
+    return result;
+  }
 
   async listMenus(
     ctx: UserContext,
@@ -129,7 +137,7 @@ export class MenuService {
       );
     }
 
-    return await this.menuRepo.createMenu({
+    const created = await this.menuRepo.createMenu({
       tenantId: input.tenantId,
       categoryId: input.categoryId,
       name: input.name,
@@ -137,7 +145,10 @@ export class MenuService {
       price: input.price,
       imageUrl: input.imageUrl,
       isAvailable: input.isAvailable,
+      isPopular: input.isPopular,
+      badge: input.badge ?? null,
     });
+    return this.notify(input.tenantId, created);
   }
 
   async updateMenu(ctx: UserContext, id: string, input: UpdateMenuInput) {
@@ -178,7 +189,7 @@ export class MenuService {
       await deleteFromR2ByUrl(menu.imageUrl);
     }
 
-    return updated;
+    return this.notify(menu.tenantId, updated);
   }
 
   async toggleAvailability(
@@ -196,7 +207,10 @@ export class MenuService {
       assertTenantMatch(ctx, menu.tenantId);
     }
 
-    return await this.menuRepo.updateMenu(id, { isAvailable });
+    return this.notify(
+      menu.tenantId,
+      await this.menuRepo.updateMenu(id, { isAvailable }),
+    );
   }
 
   async bulkUpdateAvailability(
@@ -226,10 +240,14 @@ export class MenuService {
       }
     }
 
-    return await this.menuRepo.bulkUpdateAvailability(
+    const updated = await this.menuRepo.bulkUpdateAvailability(
       input.menuIds,
       input.isAvailable,
     );
+    for (const tenantId of new Set(menus.map((m) => m.tenantId))) {
+      this.events.notifyTenant(tenantId, "menu.updated");
+    }
+    return updated;
   }
 
   async deleteMenu(ctx: UserContext, id: string) {
@@ -246,6 +264,6 @@ export class MenuService {
     // Soft delete: the row stays (order history joins to it for the menu name)
     // but it disappears from every menu listing. The image is kept for the same
     // reason. Never fails on FK relations the way a hard delete did.
-    return await this.menuRepo.deleteMenu(id);
+    return this.notify(menu.tenantId, await this.menuRepo.deleteMenu(id));
   }
 }

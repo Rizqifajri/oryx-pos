@@ -1,4 +1,5 @@
 import { integer, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bills } from "./bill";
 import { orders } from "./order";
 import { tenants } from "./tenant";
 
@@ -14,9 +15,10 @@ export const paymentRequests = pgTable("payment_requests", {
   tenantId: uuid("tenant_id")
     .references(() => tenants.id)
     .notNull(),
-  orderId: uuid("order_id")
-    .references(() => orders.id)
-    .notNull(),
+  // Exactly one of orderId (POS single-order payment) or billId (guest table
+  // bill covering every order in a session) is set.
+  orderId: uuid("order_id").references(() => orders.id),
+  billId: uuid("bill_id").references(() => bills.id),
   // Midtrans Snap token and redirect URL
   snapToken: text("snap_token").notNull(),
   snapRedirectUrl: text("snap_redirect_url").notNull(),

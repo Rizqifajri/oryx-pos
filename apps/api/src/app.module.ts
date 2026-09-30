@@ -12,7 +12,9 @@ import { OrderModule } from "./modules/order/order.module";
 import { PaymentModule } from "./modules/payment/payment.module";
 import { PermissionModule } from "./modules/permission/permission.module";
 import { RoleModule } from "./modules/role/role.module";
+import { RealtimeModule } from "./common/realtime/session-events.service";
 import { TableModule } from "./modules/table/table.module";
+import { TableSessionModule } from "./modules/table-session/table-session.module";
 import { TenantModule } from "./modules/tenant/tenant.module";
 import { TransactionModule } from "./modules/transaction/transaction.module";
 import { UploadModule } from "./modules/upload/upload.module";
@@ -21,6 +23,7 @@ import { UserModule } from "./modules/user/user.module";
 @Module({
   imports: [
     DatabaseModule,
+    RealtimeModule,
     // Same order the Express app mounted its routers in.
     AuthModule,
     TenantModule,
@@ -35,6 +38,7 @@ import { UserModule } from "./modules/user/user.module";
     TransactionModule,
     PaymentModule,
     UploadModule,
+    TableSessionModule,
   ],
   controllers: [AppController],
   providers: [

@@ -8,6 +8,7 @@ import { computePriceBreakdown } from "../../common/utils/pricing";
 import { DRIZZLE } from "../../database/database.module";
 import { OrderRepository } from "../order/order.repository";
 import { TableRepository } from "../table/table.repository";
+import { BillService, mapMidtransStatus } from "../table-session/bill.service";
 import { TransactionRepository } from "../transaction/transaction.repository";
 import { snapClient } from "./payment.config";
 import { PaymentRepository } from "./payment.repository";
@@ -21,6 +22,7 @@ export class PaymentService {
     private readonly orderRepo: OrderRepository,
     private readonly tableRepo: TableRepository,
     private readonly transactionRepo: TransactionRepository,
+    private readonly billService: BillService,
   ) {}
 
   /**
@@ -31,6 +33,11 @@ export class PaymentService {
     // Get order with full details
     const order = await this.orderRepo.findOrderById(orderId);
     if (!order) throw new AppError("Order not found", 404);
+
+    // Guest QR orders are paid together through the table bill.
+    if (order.sessionId) {
+      throw new AppError("This order is paid through its table bill", 400);
+    }
 
     // Validate order state
     if (order.status === "CANCELED") {
@@ -151,6 +158,11 @@ export class PaymentService {
     if (ctx.scope === "TENANT") {
       if (!ctx.tenantId) throw new AppError("Tenant context required", 400);
       assertTenantMatch(ctx, order.tenantId);
+    }
+
+    // Guest QR orders are paid together through the table bill.
+    if (order.sessionId) {
+      throw new AppError("This order is paid through its table bill", 400);
     }
 
     // Validate order state
@@ -297,27 +309,35 @@ export class PaymentService {
       throw new AppError("Payment request not found", 404);
     }
 
-    // Get order
-    const order = await this.orderRepo.findOrderById(paymentRequest.orderId);
-    if (!order) throw new AppError("Order not found", 404);
-
     // Map Midtrans transaction status to our payment status
     const { transaction_status, fraud_status } = notificationData;
-    let paymentStatus: "pending" | "success" | "failed" | "expired" = "pending";
+    const paymentStatus = mapMidtransStatus(transaction_status, fraud_status);
 
-    if (transaction_status === "capture") {
-      // Credit card capture - check fraud status
-      paymentStatus = fraud_status === "accept" ? "success" : "pending";
-    } else if (transaction_status === "settlement") {
-      // Payment successfully settled
-      paymentStatus = "success";
-    } else if (transaction_status === "pending") {
-      // Payment pending (e.g., waiting for bank transfer)
-      paymentStatus = "pending";
-    } else if (["deny", "cancel", "expire"].includes(transaction_status)) {
-      // Payment failed or expired
-      paymentStatus = transaction_status === "expire" ? "expired" : "failed";
+    // Table bill (guest QR session): the bill service settles every order in
+    // the session, closes it and frees the table. Replays are no-ops there.
+    if (paymentRequest.billId) {
+      // Record what was used to pay; the status transition is BillService's.
+      await this.paymentRepo.updatePaymentRequestStatus(paymentRequest.id, {
+        status: paymentRequest.status,
+        paymentType: notificationData.payment_type,
+        fraudStatus: fraud_status,
+      });
+      await this.billService.applyProviderStatus(paymentRequest, paymentStatus, {
+        grossAmount: notificationData.gross_amount,
+        paymentType: notificationData.payment_type,
+        transactionId: notificationData.transaction_id,
+      });
+      return {
+        status: paymentStatus,
+        bill_id: paymentRequest.billId,
+        midtrans_order_id: notificationData.order_id,
+      };
     }
+
+    // Get order
+    if (!paymentRequest.orderId) throw new AppError("Order not found", 404);
+    const order = await this.orderRepo.findOrderById(paymentRequest.orderId);
+    if (!order) throw new AppError("Order not found", 404);
 
     // Update payment request status
     await this.paymentRepo.updatePaymentRequestStatus(paymentRequest.id, {

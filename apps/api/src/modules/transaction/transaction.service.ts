@@ -73,6 +73,13 @@ export class TransactionService {
       assertTenantMatch(ctx, order.tenantId);
     }
 
+    if (order.sessionId) {
+      throw new AppError(
+        "Guest table orders are paid through the table bill (Tables → Settle)",
+        400,
+      );
+    }
+
     if (order.status !== "COMPLETED") {
       throw new AppError(
         "Transaction can only be created for COMPLETED orders",

@@ -19,6 +19,7 @@ type OrderItemRow = {
   menuName: string;
   quantity: number;
   price: number;
+  note: string | null;
 };
 
 @Injectable()
@@ -38,6 +39,7 @@ export class OrderRepository {
         menuName: menus.name,
         quantity: orderItems.quantity,
         price: orderItems.price,
+        note: orderItems.note,
       })
       .from(orderItems)
       .innerJoin(menus, eq(orderItems.menuId, menus.id))
@@ -58,6 +60,7 @@ export class OrderRepository {
         menuName: menus.name,
         quantity: orderItems.quantity,
         price: orderItems.price,
+        note: orderItems.note,
       })
       .from(orderItems)
       .innerJoin(menus, eq(orderItems.menuId, menus.id))
@@ -76,6 +79,9 @@ export class OrderRepository {
         status: orders.status,
         totalPrice: orders.totalPrice,
         paymentMethod: orders.paymentMethod,
+        sessionId: orders.sessionId,
+        note: orders.note,
+        submittedAt: orders.submittedAt,
         createdAt: orders.createdAt,
         customerName: customers.name,
         tableName: tables.name,
@@ -108,6 +114,9 @@ export class OrderRepository {
         status: orders.status,
         totalPrice: orders.totalPrice,
         paymentMethod: orders.paymentMethod,
+        sessionId: orders.sessionId,
+        note: orders.note,
+        submittedAt: orders.submittedAt,
         createdAt: orders.createdAt,
         customerName: customers.name,
         tableName: tables.name,
@@ -129,6 +138,9 @@ export class OrderRepository {
         status: orders.status,
         totalPrice: orders.totalPrice,
         paymentMethod: orders.paymentMethod,
+        sessionId: orders.sessionId,
+        note: orders.note,
+        submittedAt: orders.submittedAt,
         createdAt: orders.createdAt,
         customerName: customers.name,
         customerPhone: customers.phone,
@@ -150,6 +162,7 @@ export class OrderRepository {
         menuName: menus.name,
         quantity: orderItems.quantity,
         price: orderItems.price,
+        note: orderItems.note,
       })
       .from(orderItems)
       .innerJoin(menus, eq(orderItems.menuId, menus.id))
@@ -183,6 +196,7 @@ export class OrderRepository {
       totalPrice: number;
       status?: OrderStatus;
       paymentMethod?: string | null;
+      sessionId?: string | null;
     },
     items: (OrderItemInput & { price: number })[],
     tx: DbOrTx,
@@ -196,6 +210,7 @@ export class OrderRepository {
         totalPrice: orderData.totalPrice,
         status: orderData.status ?? "NEW",
         paymentMethod: orderData.paymentMethod ?? null,
+        sessionId: orderData.sessionId ?? null,
       })
       .returning();
 
@@ -220,6 +235,7 @@ export class OrderRepository {
           menuName: menus.name,
           quantity: orderItems.quantity,
           price: orderItems.price,
+        note: orderItems.note,
         })
         .from(orderItems)
         .innerJoin(menus, eq(orderItems.menuId, menus.id))

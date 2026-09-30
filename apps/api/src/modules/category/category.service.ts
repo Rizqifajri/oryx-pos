@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { AppError } from "../../common/errors/app-error";
+import { SessionEventsService } from "../../common/realtime/session-events.service";
 import type { UserContext } from "../../common/types/user-context";
 import { assertTenantMatch } from "../../common/utils/assert-permission";
 import { TenantRepository } from "../tenant/tenant.repository";
@@ -14,6 +15,7 @@ export class CategoryService {
   constructor(
     private readonly categoryRepo: CategoryRepository,
     private readonly tenantRepo: TenantRepository,
+    private readonly events: SessionEventsService,
   ) {}
 
   async listCategories(ctx: UserContext, filters?: { tenantId?: string }) {
@@ -112,7 +114,9 @@ export class CategoryService {
       assertTenantMatch(ctx, category.tenantId);
     }
 
-    return await this.categoryRepo.updateCategory(id, input);
+    const updated = await this.categoryRepo.updateCategory(id, input);
+    this.events.notifyTenant(category.tenantId, "menu.updated");
+    return updated;
   }
 
   async deleteCategory(ctx: UserContext, id: string) {
@@ -127,6 +131,8 @@ export class CategoryService {
       assertTenantMatch(ctx, category.tenantId);
     }
 
-    return await this.categoryRepo.deleteCategory(id);
+    const deleted = await this.categoryRepo.deleteCategory(id);
+    this.events.notifyTenant(category.tenantId, "menu.updated");
+    return deleted;
   }
 }

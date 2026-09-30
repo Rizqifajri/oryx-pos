@@ -52,6 +52,7 @@ export class TableRepository {
       name?: string;
       capacity?: number;
       status?: TableStatus;
+      qrToken?: string;
     },
     tx: DbOrTx = this.db,
   ) {

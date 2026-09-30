@@ -9,17 +9,13 @@ import {
   Query,
 } from "@nestjs/common";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
-import { Public } from "../../common/decorators/public.decorator";
 import { RequirePermissions } from "../../common/decorators/require-permissions.decorator";
-import { AppError } from "../../common/errors/app-error";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import type { UserContext } from "../../common/types/user-context";
 import {
   type CreateOrderInput,
   createOrderSchema,
   type OrderStatus,
-  type PublicCreateOrderInput,
-  publicCreateOrderSchema,
   type UpdateOrderStatusInput,
   updateOrderStatusSchema,
 } from "./order.schema";
@@ -28,30 +24,6 @@ import { OrderService } from "./order.service";
 @Controller("orders")
 export class OrderController {
   constructor(private readonly orderService: OrderService) {}
-
-  // ── Public routes (no authentication required) ──────────────────────────────
-  // These MUST be declared first: "public" would otherwise be captured by the
-  // :id routes below, making POST /orders/public hit createOrder instead.
-
-  @Public()
-  @Get("public/menu")
-  async getPublicMenu(@Query("tableId") tableId?: string) {
-    if (!tableId || typeof tableId !== "string") {
-      throw new AppError("tableId is required", 400);
-    }
-    const data = await this.orderService.getPublicMenu(tableId);
-    return { success: true, data };
-  }
-
-  @Public()
-  @Post("public")
-  async createPublicOrder(
-    @Body(new ZodValidationPipe(publicCreateOrderSchema))
-    body: PublicCreateOrderInput,
-  ) {
-    const data = await this.orderService.createPublicOrder(body);
-    return { success: true, data };
-  }
 
   // ── Protected routes (authentication + permissions required) ────────────────
 

@@ -2,7 +2,9 @@ export type PaymentStatus = 'pending' | 'success' | 'failed' | 'expired';
 
 export interface Payment {
   id: string;
-  orderId: string;
+  /** Set for a single-order payment; null when it pays a table bill. */
+  orderId: string | null;
+  billId?: string | null;
   tenantId: string;
   snapToken: string;
   snapRedirectUrl: string;

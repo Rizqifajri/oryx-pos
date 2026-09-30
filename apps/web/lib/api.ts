@@ -20,7 +20,8 @@ export interface ApiEnvelope<T> {
 export interface ApiErrorEnvelope {
   success: false
   message: string
-  code: number
+  /** Machine-readable reason, e.g. "UNPAID_ORDERS" (only on some errors). */
+  code?: string
 }
 
 // ─── Normalized Client Error ──────────────────────────────────────────────────
@@ -28,6 +29,7 @@ export interface ApiErrorEnvelope {
 export interface ApiError {
   message: string
   statusCode: number
+  code?: string
   errors?: Record<string, string[]>
 }
 
@@ -146,6 +148,7 @@ function normalizeError(
     return {
       statusCode: error.response.status,
       message: error.response.data?.message ?? error.message,
+      code: error.response.data?.code,
     }
   }
   if (error.request) {
