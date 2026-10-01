@@ -1,11 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { api, type ApiError } from "@/lib/api"
 import { useMe } from "@/features/auth/hooks/use-me"
-import type { ActiveTableSession, ServiceRequest, TableQr } from "../types"
+import type { SplitPayload } from "@/lib/split-bill"
+import type {
+  ActiveTableSession,
+  ServiceRequest,
+  SessionBill,
+  TableQr,
+  TableSessionDetail,
+} from "../types"
 
 export const tableSessionKeys = {
   active: (tenantId?: string | null) => ["table-sessions", "active", tenantId ?? null] as const,
   qr: (tableId: string) => ["tables", "qr", tableId] as const,
+  detail: (sessionId: string) => ["table-sessions", "detail", sessionId] as const,
   serviceRequests: (tenantId?: string | null) => ["service-requests", tenantId ?? null] as const,
   myTenant: ["tenants", "me"] as const,
 }
@@ -109,5 +117,74 @@ export function useUpdateMyTenant() {
   return useMutation<MyTenant, ApiError, Partial<Pick<MyTenant, "isOpen" | "tagline">>>({
     mutationFn: (input) => api.patch<MyTenant>("/tenants/me", input),
     onSuccess: (data) => qc.setQueryData(tableSessionKeys.myTenant, data),
+  })
+}
+
+/**
+ * Invalidate like the other session mutations, and put the bill the API
+ * returned straight into the open tab so the dialog updates without waiting
+ * for the refetch.
+ */
+function useApplyBill() {
+  const qc = useQueryClient()
+  const invalidate = useInvalidateSessions()
+  return (sessionId: string, bill: SessionBill) => {
+    qc.setQueryData<TableSessionDetail>(tableSessionKeys.detail(sessionId), (old) =>
+      old ? { ...old, bill } : old,
+    )
+    invalidate()
+  }
+}
+
+/** One tab with its orders and bill (Settle / Split dialog). */
+export function useSessionDetail(sessionId: string | null) {
+  return useQuery<TableSessionDetail, ApiError>({
+    queryKey: tableSessionKeys.detail(sessionId ?? ""),
+    queryFn: () => api.get<TableSessionDetail>(`/sessions/${sessionId}`),
+    enabled: !!sessionId,
+    refetchInterval: 10_000,
+  })
+}
+
+export function useSplitSession() {
+  const apply = useApplyBill()
+  return useMutation<SessionBill, ApiError, { sessionId: string; payload: SplitPayload }>({
+    mutationFn: ({ sessionId, payload }) => api.post(`/sessions/${sessionId}/split`, payload),
+    onSuccess: (bill, { sessionId }) => apply(sessionId, bill),
+  })
+}
+
+export function useCancelSessionSplit() {
+  const apply = useApplyBill()
+  return useMutation<SessionBill, ApiError, string>({
+    mutationFn: (sessionId) => api.post(`/sessions/${sessionId}/split/cancel`, {}),
+    onSuccess: (bill, sessionId) => apply(sessionId, bill),
+  })
+}
+
+/** Cashier collected one share. */
+export function usePayShare() {
+  const apply = useApplyBill()
+  return useMutation<SessionBill, ApiError, { sessionId: string; shareId: string; paymentMethod: string }>({
+    mutationFn: ({ sessionId, shareId, paymentMethod }) =>
+      api.post(`/sessions/${sessionId}/shares/${shareId}/pay`, { paymentMethod }),
+    onSuccess: (bill, { sessionId }) => apply(sessionId, bill),
+  })
+}
+
+export function useTransferSession() {
+  const invalidate = useInvalidateSessions()
+  return useMutation<unknown, ApiError, { sessionId: string; toTableId: string }>({
+    mutationFn: ({ sessionId, toTableId }) => api.post(`/sessions/${sessionId}/transfer`, { toTableId }),
+    onSuccess: invalidate,
+  })
+}
+
+export function useMergeSession() {
+  const invalidate = useInvalidateSessions()
+  return useMutation<unknown, ApiError, { sessionId: string; intoSessionId: string }>({
+    mutationFn: ({ sessionId, intoSessionId }) =>
+      api.post(`/sessions/${sessionId}/merge`, { intoSessionId }),
+    onSuccess: invalidate,
   })
 }

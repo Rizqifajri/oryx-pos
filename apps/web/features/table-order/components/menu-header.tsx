@@ -5,8 +5,7 @@ import Link from "next/link"
 import { ArrowLeft, BellRing, ConciergeBell, Search, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tableLabel } from "../format"
-import { useLiveTenant } from "../hooks"
-import { useGuest } from "../session-context"
+import { useLiveTable, useLiveTenant } from "../hooks"
 import { IconButton } from "./primitives"
 
 /**
@@ -24,8 +23,8 @@ export function MenuHeader({
   onSearch?: () => void
   onProfile: () => void
 }) {
-  const { guest } = useGuest()
   const tenant = useLiveTenant()
+  const table = useLiveTable()
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
@@ -51,7 +50,7 @@ export function MenuHeader({
           <div className="flex items-center gap-2">
             <h1 className="truncate text-[16px] leading-[20px] font-bold">{title}</h1>
             <span className="shrink-0 rounded-full bg-pm-amber-bg px-2 py-0.5 text-[10px] leading-[12px] font-semibold whitespace-nowrap text-pm-amber-fg">
-              {tableLabel(guest.table.name)}
+              {tableLabel(table.name)}
             </span>
           </div>
         </div>
@@ -69,9 +68,8 @@ export function MenuHeader({
 
 /** B. Restaurant card. Below 400px the table chip wraps under the name. */
 export function RestaurantCard() {
-  const { guest } = useGuest()
   const tenant = useLiveTenant()
-  const { table } = guest
+  const table = useLiveTable()
   return (
     <section className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] bg-pm-surface p-3 shadow-pm-card">
       <div className="grid size-9 shrink-0 place-items-center rounded-[8px] bg-pm-surface-muted">
@@ -103,7 +101,7 @@ export function RestaurantCard() {
 
 /** Header for secondary pages (cart, bill, help): back link + title + table. */
 export function SubPageHeader({ title, backHref }: { title: string; backHref?: string }) {
-  const { guest } = useGuest()
+  const table = useLiveTable()
   return (
     <header className="sticky top-0 z-30 border-b border-pm-line bg-pm-bg pt-[env(safe-area-inset-top)]">
       <div className="mx-auto flex h-14 max-w-[720px] items-center gap-3 px-3 sm:px-4">
@@ -119,7 +117,7 @@ export function SubPageHeader({ title, backHref }: { title: string; backHref?: s
         )}
         <h1 className="min-w-0 flex-1 truncate text-[16px] leading-[20px] font-bold">{title}</h1>
         <span className="shrink-0 rounded-full bg-pm-amber-bg px-2 py-0.5 text-[10px] leading-[12px] font-semibold whitespace-nowrap text-pm-amber-fg">
-          {tableLabel(guest.table.name)}
+          {tableLabel(table.name)}
         </span>
       </div>
     </header>

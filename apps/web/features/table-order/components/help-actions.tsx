@@ -1,7 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { BellRing, GlassWater, type LucideIcon, ReceiptText, UtensilsCrossed } from "lucide-react"
+import {
+  ArrowRightLeft,
+  BellRing,
+  GlassWater,
+  type LucideIcon,
+  ReceiptText,
+  UtensilsCrossed,
+} from "lucide-react"
 import { toast } from "sonner"
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
@@ -13,6 +20,7 @@ const ACTIONS: { type: ServiceRequestType; label: string; hint: string; icon: Lu
   { type: "water", label: "Minta air putih", hint: "Air mineral untuk meja", icon: GlassWater },
   { type: "cutlery", label: "Minta alat makan", hint: "Sendok, garpu, sumpit, tisu", icon: UtensilsCrossed },
   { type: "bill", label: "Minta tagihan", hint: "Kasir membawa tagihan ke meja", icon: ReceiptText },
+  { type: "move_table", label: "Pindah meja", hint: "Staf memindahkan pesanan & tagihan Anda", icon: ArrowRightLeft },
 ]
 
 const SUCCESS: Record<ServiceRequestType, string> = {
@@ -20,6 +28,7 @@ const SUCCESS: Record<ServiceRequestType, string> = {
   water: "Permintaan air putih terkirim",
   cutlery: "Permintaan alat makan terkirim",
   bill: "Kasir akan membawa tagihan",
+  move_table: "Permintaan pindah meja terkirim",
 }
 
 /** Seconds until each request type may be sent again (60s anti-spam). */
@@ -45,13 +54,15 @@ export function HelpActions({ className }: { className?: string }) {
   const { data: view } = useSessionView()
   const { mutate, isPending, variables } = useServiceRequest()
   const [local, setLocal] = useState<Partial<Record<ServiceRequestType, string>>>({})
+  const [moveNote, setMoveNote] = useState<string | null>(null)
   const remaining = useCooldowns(local)
   const closed = view?.session.status === "closed"
 
-  function send(type: ServiceRequestType) {
-    mutate(type, {
+  function send(type: ServiceRequestType, note?: string) {
+    mutate({ type, note }, {
       onSuccess: (res) => {
         setLocal((l) => ({ ...l, [type]: res.retryAt }))
+        setMoveNote(null)
         toast.success(SUCCESS[type])
       },
       onError: (error) => {
@@ -66,14 +77,19 @@ export function HelpActions({ className }: { className?: string }) {
     <ul className={cn("grid gap-2 sm:grid-cols-2", className)}>
       {ACTIONS.map((action) => {
         const wait = remaining(action.type)
-        const sending = isPending && variables === action.type
+        const sending =
+          isPending && typeof variables === "object" && variables.type === action.type
         const Icon = action.icon
         return (
           <li key={action.type}>
             <button
               type="button"
               disabled={wait > 0 || sending || closed}
-              onClick={() => send(action.type)}
+              aria-expanded={action.type === "move_table" ? moveNote !== null : undefined}
+              onClick={() =>
+                // Moving needs a word on where to; the others send right away.
+                action.type === "move_table" ? setMoveNote((n) => (n === null ? "" : null)) : send(action.type)
+              }
               className="flex w-full items-center gap-3 rounded-[14px] bg-pm-surface p-3 text-left shadow-pm-card disabled:opacity-60"
             >
               <span className="grid size-10 shrink-0 place-items-center rounded-full bg-pm-surface-muted">
@@ -86,6 +102,33 @@ export function HelpActions({ className }: { className?: string }) {
                 </span>
               </span>
             </button>
+            {action.type === "move_table" && moveNote !== null && (
+              <form
+                className="mt-2 space-y-2 rounded-[14px] bg-pm-surface p-3 shadow-pm-card"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  send("move_table", moveNote.trim() || undefined)
+                }}
+              >
+                <label className="block text-[12px] font-semibold" htmlFor="move-note">
+                  Mau pindah ke mana? (opsional)
+                </label>
+                <input
+                  id="move-note"
+                  value={moveNote}
+                  onChange={(e) => setMoveNote(e.target.value.slice(0, 200))}
+                  placeholder="Contoh: area outdoor, gabung dengan Meja 5"
+                  className="h-10 w-full rounded-[12px] bg-pm-surface-muted px-3 text-[13px] outline-none placeholder:text-pm-subtle"
+                />
+                <button
+                  type="submit"
+                  disabled={sending}
+                  className="h-10 w-full rounded-full bg-pm-ink text-[13px] font-bold text-white disabled:opacity-60"
+                >
+                  {sending ? "Mengirim…" : "Kirim permintaan"}
+                </button>
+              </form>
+            )}
           </li>
         )
       })}

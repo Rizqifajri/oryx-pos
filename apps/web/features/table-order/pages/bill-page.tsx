@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { CircleCheck, Clock, Loader2, QrCode, ReceiptText, Store } from "lucide-react"
+import { CircleCheck, Clock, Loader2, QrCode, ReceiptText, Store, Users } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { formatClock, formatRupiah, orderRef, tableLabel } from "../format"
@@ -18,6 +18,7 @@ import { useGuest } from "../session-context"
 import type { Bill, BillPayment, SessionOrder, SessionView } from "../types"
 import { SubPageHeader } from "../components/menu-header"
 import { OrderStatusChip } from "../components/primitives"
+import { SplitBillSheet, SplitSharesPanel } from "../components/split-bill"
 import { TAB_BAR_SPACE } from "../components/bottom-bars"
 import { Row } from "./cart-page"
 
@@ -81,7 +82,7 @@ function OpenBill({ view }: { view: SessionView }) {
       {billable.length > 0 && (
         <>
           <Charges bill={view.bill} />
-          <PaymentPanel view={view} />
+          {view.bill.splitMode ? <SplitSharesPanel view={view} /> : <PaymentPanel view={view} />}
         </>
       )}
     </>
@@ -191,6 +192,7 @@ function PaymentPanel({ view }: { view: SessionView }) {
   const create = useCreateBillPayment()
   const cancel = useCancelBillPayment()
   const [verifying, setVerifying] = useState(false)
+  const [splitOpen, setSplitOpen] = useState(false)
 
   const pendingOnline =
     bill.status === "locked" && bill.paymentMethod === "online" && bill.payment?.status === "pending"
@@ -290,6 +292,7 @@ function PaymentPanel({ view }: { view: SessionView }) {
   const kitchenBusy = view.orders.some((o) => o.status === "NEW" || o.status === "PROCESSING")
   return (
     <div className="space-y-2">
+      <SplitBillSheet view={view} open={splitOpen} onOpenChange={setSplitOpen} />
       {kitchenBusy && (
         <p className="text-center text-[12px] text-pm-muted">
           Sebagian pesanan masih disiapkan. Anda tetap bisa membayar sekarang.
@@ -299,9 +302,14 @@ function PaymentPanel({ view }: { view: SessionView }) {
         {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <QrCode className="size-4" aria-hidden />}
         Bayar Sekarang · {formatRupiah(bill.totalAmount)}
       </PrimaryButton>
-      <SecondaryButton disabled={busy} onClick={() => void start("cashier")} className="w-full">
-        <Store className="size-4" aria-hidden /> Bayar di Kasir
-      </SecondaryButton>
+      <div className="flex gap-2">
+        <SecondaryButton disabled={busy} onClick={() => void start("cashier")}>
+          <Store className="size-4" aria-hidden /> Bayar di Kasir
+        </SecondaryButton>
+        <SecondaryButton disabled={busy} onClick={() => setSplitOpen(true)}>
+          <Users className="size-4" aria-hidden /> Bagi tagihan
+        </SecondaryButton>
+      </div>
       <p className="text-center text-[11px] leading-[15px] text-pm-muted">
         Satu tagihan untuk semua tamu di meja ini. Setelah pembayaran dimulai, pesanan baru dijeda.
       </p>
@@ -319,6 +327,7 @@ const METHOD_LABEL: Record<string, string> = {
   transfer: "Transfer",
   online: "Online",
   cashier: "Kasir",
+  split: "Dibayar terpisah",
 }
 
 function Receipt({ view }: { view: SessionView }) {
@@ -333,7 +342,7 @@ function Receipt({ view }: { view: SessionView }) {
         <CircleCheck className="mx-auto size-10 text-pm-success" strokeWidth={1.5} aria-hidden />
         <h2 className="mt-2 text-[18px] font-bold">Pembayaran berhasil</h2>
         <p className="mt-1 text-[13px] text-pm-muted">
-          {view.tenant?.name ?? guest.tenant.name} · {tableLabel(guest.table.name)}
+          {view.tenant?.name ?? guest.tenant.name} · {tableLabel(view.table?.name ?? guest.table.name)}
         </p>
         <p className="text-[12px] text-pm-muted tabular-nums">
           {bill.paidAt && `${formatClock(bill.paidAt)} · `}
@@ -361,6 +370,19 @@ function Receipt({ view }: { view: SessionView }) {
           <Row label="Service Charge (5%)" value={formatRupiah(bill.serviceAmount)} muted />
           <Row label="Total dibayar" value={formatRupiah(bill.totalAmount)} strong />
         </div>
+        {bill.shares.length > 0 && (
+          <div className="mt-3 space-y-1 border-t border-dashed border-pm-line pt-2">
+            <p className="text-[12px] font-semibold">Dibayar terpisah</p>
+            {bill.shares.map((s) => (
+              <Row
+                key={s.id}
+                label={`${s.label} · ${METHOD_LABEL[s.paymentMethod ?? ""] ?? s.paymentMethod ?? "—"}`}
+                value={formatRupiah(s.amount)}
+                muted
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       <p className="text-center text-[14px] font-semibold">Terima kasih! Sampai jumpa lagi.</p>

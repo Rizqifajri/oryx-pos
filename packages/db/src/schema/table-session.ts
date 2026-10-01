@@ -40,6 +40,9 @@ export const tableSessions = pgTable(
     openedAt: timestamp("opened_at").notNull().defaultNow(),
     closedAt: timestamp("closed_at"),
     closedReason: text("closed_reason"),
+    // Set when staff merged this table's tab into another session; guests of
+    // this session follow it there.
+    mergedIntoSessionId: uuid("merged_into_session_id"),
   },
   (table) => [
     // At most one live session per table, enforced by the database so two

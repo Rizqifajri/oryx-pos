@@ -21,6 +21,8 @@ type TableSessionValue = {
   basePath: string
   /** Opens (or rejoins) the table's live session, replacing the cached one. */
   reopen: () => Promise<void>
+  /** Adopt another session for this device (e.g. after a table merge). */
+  switchTo: (session: GuestSession) => void
 }
 
 const TableSessionContext = createContext<TableSessionValue | null>(null)
@@ -152,8 +154,9 @@ export function TableSessionProvider({
       client,
       basePath: `/order/${tenantSlug}/${tableToken}`,
       reopen,
+      switchTo: adopt,
     }),
-    [phase, errorMessage, tenantSlug, tableToken, guest, client, reopen],
+    [phase, errorMessage, tenantSlug, tableToken, guest, client, reopen, adopt],
   )
 
   return <TableSessionContext.Provider value={value}>{children}</TableSessionContext.Provider>

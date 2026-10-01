@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { PermissionGuard } from "@/components/guards"
 import { PERMISSIONS } from "@/constants/permissions"
 import { cn } from "@/lib/utils"
-import { Plus, Edit, Trash2, Users, QrCode, Receipt, Lock, XCircle } from "lucide-react"
+import { Plus, Edit, Trash2, Users, QrCode, Receipt, Lock, XCircle, ArrowRightLeft } from "lucide-react"
 import { toast } from "sonner"
 
 import { useTables, useDeleteTable, useUpdateTableStatus } from "../hooks/use-tables"
@@ -20,7 +20,8 @@ import {
 import { TableFormDialog } from "./table-form-dialog"
 import { TableQrDialog } from "./table-qr-dialog"
 import { formatIdr } from "@/lib/format"
-import { SettleBillDialog } from "./settle-bill-dialog"
+import { BillDialog } from "./bill-dialog"
+import { MoveMergeDialog } from "./move-merge-dialog"
 import type { ActiveTableSession, Table, TableStatus } from "../types"
 
 interface TableSectionProps {
@@ -49,6 +50,7 @@ export function TableSection({ tenantId }: TableSectionProps = {}) {
   const [editingTable, setEditingTable] = useState<Table | null>(null)
   const [qrTableId, setQrTableId] = useState<string | null>(null)
   const [settling, setSettling] = useState<ActiveTableSession | null>(null)
+  const [moving, setMoving] = useState<ActiveTableSession | null>(null)
 
   // Build filters object conditionally
   const filters = {
@@ -58,6 +60,8 @@ export function TableSection({ tenantId }: TableSectionProps = {}) {
   const hasFilters = Object.keys(filters).length > 0
 
   const { data: tables = [], isLoading } = useTables(hasFilters ? filters : undefined)
+  // Move targets come from every table, whatever tab filter is active.
+  const { data: allTables = [] } = useTables(tenantId ? { tenantId } : undefined)
   const { mutateAsync: deleteTable, isPending: isDeleting } = useDeleteTable()
   const { mutateAsync: updateStatus } = useUpdateTableStatus()
   const { data: sessions = [] } = useActiveSessions(tenantId)
@@ -223,6 +227,7 @@ export function TableSection({ tenantId }: TableSectionProps = {}) {
                   <SessionCell
                     session={sessionByTable.get(table.id)}
                     onSettle={setSettling}
+                    onMove={setMoving}
                     onClose={handleCloseSession}
                     onUnlock={(s) =>
                       unlockBill.mutate(s.id, {
@@ -277,7 +282,17 @@ export function TableSection({ tenantId }: TableSectionProps = {}) {
       </div>
 
       <TableQrDialog tableId={qrTableId} onOpenChange={(open) => !open && setQrTableId(null)} />
-      <SettleBillDialog session={settling} onOpenChange={(open) => !open && setSettling(null)} />
+      <BillDialog
+        // Always the freshest copy of the session (polling keeps it current).
+        session={settling && (sessions.find((s) => s.id === settling.id) ?? null)}
+        onOpenChange={(open) => !open && setSettling(null)}
+      />
+      <MoveMergeDialog
+        session={moving}
+        tables={allTables}
+        sessions={sessions}
+        onOpenChange={(open) => !open && setMoving(null)}
+      />
 
       <TableFormDialog
         open={dialogOpen}
@@ -292,11 +307,13 @@ export function TableSection({ tenantId }: TableSectionProps = {}) {
 function SessionCell({
   session,
   onSettle,
+  onMove,
   onClose,
   onUnlock,
 }: {
   session?: ActiveTableSession
   onSettle: (session: ActiveTableSession) => void
+  onMove: (session: ActiveTableSession) => void
   onClose: (session: ActiveTableSession) => void
   onUnlock: (session: ActiveTableSession) => void
 }) {
@@ -307,11 +324,13 @@ function SessionCell({
     <div className="flex flex-wrap items-center gap-2">
       <div className="min-w-0">
         <p className="text-xs font-medium">
-          {paying
-            ? session.bill.paymentMethod === "cashier"
-              ? "Waiting for cashier"
-              : "Paying online"
-            : `${session.orderCount} order(s)`}
+          {session.bill.splitMode
+            ? `Split · ${session.bill.shares.filter((s) => s.status === "paid").length}/${session.bill.shares.length} paid`
+            : paying
+              ? session.bill.paymentMethod === "cashier"
+                ? "Waiting for cashier"
+                : "Paying online"
+              : `${session.orderCount} order(s)`}
         </p>
         <p className="text-xs tabular-nums text-muted-foreground">{formatIdr(session.bill.totalAmount)}</p>
       </div>
@@ -325,12 +344,16 @@ function SessionCell({
             variant={paying && session.bill.paymentMethod === "cashier" ? "default" : "outline"}
             disabled={session.bill.totalAmount === 0}
             onClick={() => onSettle(session)}
-            title="Record payment and close"
+            title="Take payment, split the bill"
           >
-            <Receipt className="mr-1 h-3.5 w-3.5" /> Settle
+            <Receipt className="mr-1 h-3.5 w-3.5" /> Bill
           </Button>
         </PermissionGuard>
         <PermissionGuard permissions={[PERMISSIONS.TABLE_UPDATE, PERMISSIONS.TABLE_MANAGE]} requireAll={false}>
+          <Button size="sm" variant="ghost" onClick={() => onMove(session)} title="Move or merge tables">
+            <ArrowRightLeft className="h-3.5 w-3.5" />
+            <span className="sr-only">Move or merge {session.tableName}</span>
+          </Button>
           {paying && (
             <Button size="sm" variant="ghost" onClick={() => onUnlock(session)} title="Cancel payment, allow ordering">
               <Lock className="h-3.5 w-3.5" />

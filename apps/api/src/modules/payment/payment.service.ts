@@ -9,6 +9,7 @@ import { DRIZZLE } from "../../database/database.module";
 import { OrderRepository } from "../order/order.repository";
 import { TableRepository } from "../table/table.repository";
 import { BillService, mapMidtransStatus } from "../table-session/bill.service";
+import { SplitService } from "../table-session/split.service";
 import { TransactionRepository } from "../transaction/transaction.repository";
 import { snapClient } from "./payment.config";
 import { PaymentRepository } from "./payment.repository";
@@ -23,6 +24,7 @@ export class PaymentService {
     private readonly tableRepo: TableRepository,
     private readonly transactionRepo: TransactionRepository,
     private readonly billService: BillService,
+    private readonly splitService: SplitService,
   ) {}
 
   /**
@@ -312,6 +314,25 @@ export class PaymentService {
     // Map Midtrans transaction status to our payment status
     const { transaction_status, fraud_status } = notificationData;
     const paymentStatus = mapMidtransStatus(transaction_status, fraud_status);
+
+    // One share of a split table bill: marks the share paid, and settles the
+    // bill once every share is paid.
+    if (paymentRequest.shareId) {
+      await this.paymentRepo.updatePaymentRequestStatus(paymentRequest.id, {
+        status: paymentRequest.status,
+        paymentType: notificationData.payment_type,
+        fraudStatus: fraud_status,
+      });
+      await this.splitService.applyProviderStatus(paymentRequest, paymentStatus, {
+        grossAmount: notificationData.gross_amount,
+        paymentType: notificationData.payment_type,
+      });
+      return {
+        status: paymentStatus,
+        share_id: paymentRequest.shareId,
+        midtrans_order_id: notificationData.order_id,
+      };
+    }
 
     // Table bill (guest QR session): the bill service settles every order in
     // the session, closes it and frees the table. Replays are no-ops there.
