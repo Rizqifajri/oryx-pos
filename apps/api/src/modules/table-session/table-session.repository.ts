@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { Db, DbOrTx } from "@dio-sys-be/db";
 import {
+  billShares,
   bills,
   menus,
   orderItems,
@@ -16,6 +17,8 @@ import { DRIZZLE } from "../../database/database.module";
 
 export type TableSessionRow = typeof tableSessions.$inferSelect;
 export type BillRow = typeof bills.$inferSelect;
+export type BillShareRow = typeof billShares.$inferSelect;
+export type PaymentRequestRow = typeof paymentRequests.$inferSelect;
 export type ServiceRequestType =
   (typeof serviceRequests.$inferSelect)["type"];
 
@@ -305,16 +308,18 @@ export class TableSessionRepository {
 
   // ── Bill payment requests ─────────────────────────────────────────────────
 
+  /** Latest whole-bill online payment (share payments excluded). */
   async findLatestBillPayment(billId: string, tx: DbOrTx = this.db) {
     const [payment] = await tx
       .select()
       .from(paymentRequests)
-      .where(eq(paymentRequests.billId, billId))
+      .where(and(eq(paymentRequests.billId, billId), isNull(paymentRequests.shareId)))
       .orderBy(desc(paymentRequests.createdAt))
       .limit(1);
     return payment ?? null;
   }
 
+  /** Pending online payments on the bill, whole-bill and share alike. */
   async findPendingBillPayments(billId: string, tx: DbOrTx = this.db) {
     return await tx
       .select()
@@ -325,6 +330,19 @@ export class TableSessionRepository {
           eq(paymentRequests.status, "pending"),
         ),
       );
+  }
+
+  async findPendingSharePayments(shareId: string, tx: DbOrTx = this.db) {
+    return await tx
+      .select()
+      .from(paymentRequests)
+      .where(
+        and(
+          eq(paymentRequests.shareId, shareId),
+          eq(paymentRequests.status, "pending"),
+        ),
+      )
+      .orderBy(desc(paymentRequests.createdAt));
   }
 
   async findPaymentRequestById(id: string) {
@@ -345,6 +363,7 @@ export class TableSessionRepository {
       midtransOrderId: string;
       amount: number;
       expiresAt: Date;
+      shareId?: string;
     },
     tx: DbOrTx = this.db,
   ) {
@@ -407,6 +426,7 @@ export class TableSessionRepository {
       sessionId: string;
       tableId: string;
       type: ServiceRequestType;
+      note?: string | null;
     },
     tx: DbOrTx = this.db,
   ) {
@@ -426,6 +446,7 @@ export class TableSessionRepository {
         tableName: tables.name,
         type: serviceRequests.type,
         status: serviceRequests.status,
+        note: serviceRequests.note,
         createdAt: serviceRequests.createdAt,
       })
       .from(serviceRequests)
@@ -463,6 +484,92 @@ export class TableSessionRepository {
           eq(serviceRequests.status, "pending"),
         ),
       );
+  }
+
+  // ── Bill shares (split bill) ──────────────────────────────────────────────
+
+  /** Live (non-void) shares of a bill, in display order. */
+  async findShares(billId: string, tx: DbOrTx = this.db) {
+    return await tx
+      .select()
+      .from(billShares)
+      .where(and(eq(billShares.billId, billId), inArray(billShares.status, ["pending", "paid"])))
+      .orderBy(asc(billShares.sortOrder));
+  }
+
+  async findShareById(id: string, tx: DbOrTx = this.db) {
+    const [share] = await tx.select().from(billShares).where(eq(billShares.id, id)).limit(1);
+    return share ?? null;
+  }
+
+  async lockShare(id: string, tx: DbOrTx) {
+    const [share] = await tx.select().from(billShares).where(eq(billShares.id, id)).for("update");
+    return share ?? null;
+  }
+
+  async insertShares(rows: (typeof billShares.$inferInsert)[], tx: DbOrTx) {
+    return await tx.insert(billShares).values(rows).returning();
+  }
+
+  async updateShare(
+    id: string,
+    data: Partial<Pick<BillShareRow, "status" | "paymentMethod" | "paidAt">>,
+    tx: DbOrTx = this.db,
+  ) {
+    const [share] = await tx.update(billShares).set(data).where(eq(billShares.id, id)).returning();
+    return share ?? null;
+  }
+
+  /** Voids every pending share of a bill (paid shares are never touched). */
+  async voidPendingShares(billId: string, tx: DbOrTx) {
+    await tx
+      .update(billShares)
+      .set({ status: "void" })
+      .where(and(eq(billShares.billId, billId), eq(billShares.status, "pending")));
+  }
+
+  // ── Move / merge ──────────────────────────────────────────────────────────
+
+  /** Points a session and everything that references its table at a new table. */
+  async moveSessionToTable(sessionId: string, toTableId: string, tx: DbOrTx) {
+    await tx.update(tableSessions).set({ tableId: toTableId }).where(eq(tableSessions.id, sessionId));
+    await tx.update(orders).set({ tableId: toTableId }).where(eq(orders.sessionId, sessionId));
+    await tx
+      .update(serviceRequests)
+      .set({ tableId: toTableId })
+      .where(eq(serviceRequests.sessionId, sessionId));
+  }
+
+  /** Moves every order and request of `fromSessionId` onto `into`. */
+  async reassignSessionContent(
+    fromSessionId: string,
+    into: { sessionId: string; tableId: string },
+    tx: DbOrTx,
+  ) {
+    await tx
+      .update(orders)
+      .set({ sessionId: into.sessionId, tableId: into.tableId })
+      .where(eq(orders.sessionId, fromSessionId));
+    await tx
+      .update(serviceRequests)
+      .set({ sessionId: into.sessionId, tableId: into.tableId })
+      .where(eq(serviceRequests.sessionId, fromSessionId));
+  }
+
+  async markSessionMerged(sessionId: string, intoSessionId: string, tx: DbOrTx) {
+    await tx
+      .update(tableSessions)
+      .set({
+        status: "closed",
+        closedAt: new Date(),
+        closedReason: "merged",
+        mergedIntoSessionId: intoSessionId,
+      })
+      .where(eq(tableSessions.id, sessionId));
+  }
+
+  async setTableStatus(tableId: string, status: "AVAILABLE" | "OCCUPIED", tx: DbOrTx) {
+    await tx.update(tables).set({ status }).where(eq(tables.id, tableId));
   }
 
   // ── Public menu ───────────────────────────────────────────────────────────

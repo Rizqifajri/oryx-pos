@@ -29,6 +29,8 @@ import {
   createSessionOrderSchema,
   type LockBillInput,
   lockBillSchema,
+  type SplitBillInput,
+  splitBillSchema,
 } from "./table-session.schema";
 
 /**
@@ -143,7 +145,43 @@ export class PublicOrderController {
     @Body(new ZodValidationPipe(createServiceRequestSchema))
     body: CreateServiceRequestInput,
   ) {
-    const data = await this.service.createServiceRequest(guest, body.type);
+    const data = await this.service.createServiceRequest(guest, body.type, body.note);
+    return { success: true, data };
+  }
+
+  @Post("sessions/:sessionId/bill/split")
+  @UseGuards(GuestSessionGuard)
+  async splitBill(
+    @CurrentGuest() guest: GuestContext,
+    @Body(new ZodValidationPipe(splitBillSchema)) body: SplitBillInput,
+  ) {
+    const data = await this.service.splitBill(guest, body);
+    return { success: true, data };
+  }
+
+  @Post("sessions/:sessionId/bill/split/cancel")
+  @UseGuards(GuestSessionGuard)
+  async cancelSplit(@CurrentGuest() guest: GuestContext) {
+    const data = await this.service.cancelSplit(guest);
+    return { success: true, data };
+  }
+
+  // Idempotent: a pending, unexpired payment for the share is reused.
+  @Post("bills/:billId/shares/:shareId/payments")
+  @UseGuards(GuestSessionGuard)
+  async payShare(
+    @CurrentGuest() guest: GuestContext,
+    @Param("billId", ParseUUIDPipe) billId: string,
+    @Param("shareId", ParseUUIDPipe) shareId: string,
+  ) {
+    const data = await this.service.payShare(guest, billId, shareId);
+    return { success: true, data };
+  }
+
+  @Post("sessions/:sessionId/follow")
+  @UseGuards(GuestSessionGuard)
+  async follow(@CurrentGuest() guest: GuestContext) {
+    const data = await this.service.followMergedSession(guest);
     return { success: true, data };
   }
 

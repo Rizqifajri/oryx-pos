@@ -1,4 +1,4 @@
-import { pgEnum, pgTable, timestamp, uuid } from "drizzle-orm/pg-core";
+import { pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { tables } from "./table";
 import { tableSessions } from "./table-session";
 import { tenants } from "./tenant";
@@ -9,6 +9,7 @@ export const serviceRequestType = pgEnum("serviceRequestType", [
   "water",
   "cutlery",
   "bill",
+  "move_table",
 ]);
 
 export const serviceRequestStatus = pgEnum("serviceRequestStatus", [
@@ -30,6 +31,8 @@ export const serviceRequests = pgTable("service_requests", {
     .notNull(),
   type: serviceRequestType("type").notNull(),
   status: serviceRequestStatus("status").default("pending").notNull(),
+  // Free text from the guest, e.g. where they would like to move.
+  note: text("note"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   handledAt: timestamp("handled_at"),
   handledBy: uuid("handled_by").references(() => users.id),

@@ -218,6 +218,18 @@ export class OrderService {
 
     if (ctx.scope === "TENANT") assertTenantMatch(ctx, order.tenantId);
 
+    // While a table is paying, its totals (and any split shares) are frozen.
+    if (input.status === "CANCELED" && order.sessionId) {
+      const session = await this.sessionRepo.findSessionById(order.sessionId);
+      if (session?.status === "billing") {
+        throw new AppError(
+          "This table's bill is being paid. Unlock the bill before canceling an order.",
+          409,
+          { code: "BILL_LOCKED" },
+        );
+      }
+    }
+
     const allowed = VALID_TRANSITIONS[order.status];
     if (!allowed.includes(input.status)) {
       throw new AppError(

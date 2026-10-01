@@ -16,8 +16,16 @@ import { StaffSessionService } from "./staff-session.service";
 import {
   type CloseSessionInput,
   closeSessionSchema,
+  type MergeSessionInput,
+  mergeSessionSchema,
+  type PayShareInput,
+  payShareSchema,
   type SettleSessionInput,
   settleSessionSchema,
+  type SplitBillInput,
+  splitBillSchema,
+  type TransferSessionInput,
+  transferSessionSchema,
 } from "./table-session.schema";
 
 @Controller("sessions")
@@ -52,6 +60,61 @@ export class StaffSessionController {
     @Body(new ZodValidationPipe(settleSessionSchema)) body: SettleSessionInput,
   ) {
     const data = await this.service.settle(user, id, body.paymentMethod);
+    return { success: true, data };
+  }
+
+  @Post(":id/split")
+  @RequirePermissions("transaction:manage", "transaction:create")
+  async split(
+    @CurrentUser() user: UserContext,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(splitBillSchema)) body: SplitBillInput,
+  ) {
+    const data = await this.service.splitBill(user, id, body);
+    return { success: true, data };
+  }
+
+  @Post(":id/split/cancel")
+  @RequirePermissions("transaction:manage", "transaction:create")
+  async cancelSplit(
+    @CurrentUser() user: UserContext,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    const data = await this.service.cancelSplit(user, id);
+    return { success: true, data };
+  }
+
+  @Post(":id/shares/:shareId/pay")
+  @RequirePermissions("transaction:manage", "transaction:create")
+  async payShare(
+    @CurrentUser() user: UserContext,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("shareId", ParseUUIDPipe) shareId: string,
+    @Body(new ZodValidationPipe(payShareSchema)) body: PayShareInput,
+  ) {
+    const data = await this.service.payShare(user, id, shareId, body.paymentMethod);
+    return { success: true, data };
+  }
+
+  @Post(":id/transfer")
+  @RequirePermissions("table:manage", "table:update")
+  async transfer(
+    @CurrentUser() user: UserContext,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(transferSessionSchema)) body: TransferSessionInput,
+  ) {
+    const data = await this.service.transfer(user, id, body.toTableId);
+    return { success: true, data };
+  }
+
+  @Post(":id/merge")
+  @RequirePermissions("table:manage", "table:update")
+  async merge(
+    @CurrentUser() user: UserContext,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(mergeSessionSchema)) body: MergeSessionInput,
+  ) {
+    const data = await this.service.merge(user, id, body.intoSessionId);
     return { success: true, data };
   }
 

@@ -7,6 +7,7 @@ import {
   ServiceRequestController,
   StaffSessionController,
 } from "./staff-session.controller";
+import { SplitService } from "./split.service";
 import { StaffSessionService } from "./staff-session.service";
 
 /** QR table ordering: guest sessions, table bills and service requests. */
@@ -17,8 +18,8 @@ import { StaffSessionService } from "./staff-session.service";
     StaffSessionController,
     ServiceRequestController,
   ],
-  providers: [BillService, PublicOrderService, StaffSessionService],
-  // PaymentService routes Midtrans webhooks for bill payments through here.
-  exports: [BillService],
+  providers: [BillService, SplitService, PublicOrderService, StaffSessionService],
+  // PaymentService routes Midtrans webhooks for bill/share payments here.
+  exports: [BillService, SplitService],
 })
 export class TableSessionModule {}

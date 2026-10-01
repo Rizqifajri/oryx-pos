@@ -1,5 +1,5 @@
 import { integer, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
-import { bills } from "./bill";
+import { billShares, bills } from "./bill";
 import { orders } from "./order";
 import { tenants } from "./tenant";
 
@@ -19,6 +19,8 @@ export const paymentRequests = pgTable("payment_requests", {
   // bill covering every order in a session) is set.
   orderId: uuid("order_id").references(() => orders.id),
   billId: uuid("bill_id").references(() => bills.id),
+  // Set when paying one share of a split bill (amount = the share's amount).
+  shareId: uuid("share_id").references(() => billShares.id),
   // Midtrans Snap token and redirect URL
   snapToken: text("snap_token").notNull(),
   snapRedirectUrl: text("snap_redirect_url").notNull(),

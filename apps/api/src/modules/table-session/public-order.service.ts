@@ -9,12 +9,13 @@ import { MenuRepository } from "../menu/menu.repository";
 import { TableRepository } from "../table/table.repository";
 import { TenantRepository } from "../tenant/tenant.repository";
 import { BillService } from "./bill.service";
+import { SplitService } from "./split.service";
 import {
   type ServiceRequestType,
   TableSessionRepository,
   type TableSessionRow,
 } from "./table-session.repository";
-import type { CreateSessionOrderInput } from "./table-session.schema";
+import type { CreateSessionOrderInput, SplitBillInput } from "./table-session.schema";
 
 /** One request per type per session in this window (anti-spam). */
 const SERVICE_REQUEST_COOLDOWN_MS = 60 * 1000;
@@ -30,6 +31,7 @@ export class PublicOrderService {
     @Inject(DRIZZLE) private readonly db: Db,
     private readonly repo: TableSessionRepository,
     private readonly bills: BillService,
+    private readonly split: SplitService,
     private readonly tableRepo: TableRepository,
     private readonly tenantRepo: TenantRepository,
     private readonly categoryRepo: CategoryRepository,
@@ -127,6 +129,8 @@ export class PublicOrderService {
         status: session.status,
         openedAt: session.openedAt,
         closedAt: session.closedAt,
+        // Staff merged this table into another tab: the client follows it.
+        mergedIntoSessionId: session.mergedIntoSessionId,
       },
       table: table && { id: table.id, name: table.name },
       tenant: tenant && {
@@ -308,7 +312,7 @@ export class PublicOrderService {
         "bill",
         new Date(Date.now() - SERVICE_REQUEST_COOLDOWN_MS),
       );
-      if (!recent) await this.createServiceRequestRow(guest, "bill");
+      if (!recent) await this.createServiceRequestRow(await this.requireSession(guest), "bill");
       return { method, payment: null, bill: await this.bills.getBillView(guest.sessionId) };
     }
 
@@ -343,7 +347,10 @@ export class PublicOrderService {
     if (!payment?.billId) throw new AppError("Pembayaran tidak ditemukan", 404);
     await this.requireBill(guest, payment.billId);
 
-    if (payment.status === "pending") await this.bills.reconcile(payment);
+    if (payment.status === "pending") {
+      if (payment.shareId) await this.split.reconcile(payment);
+      else await this.bills.reconcile(payment);
+    }
     const fresh = await this.repo.findPaymentRequestById(paymentId);
     return {
       payment: this.bills.toPaymentView(fresh!),
@@ -351,7 +358,7 @@ export class PublicOrderService {
     };
   }
 
-  async createServiceRequest(guest: GuestContext, type: ServiceRequestType) {
+  async createServiceRequest(guest: GuestContext, type: ServiceRequestType, note?: string) {
     const session = await this.requireSession(guest);
     if (session.status === "closed") {
       throw new AppError("Sesi meja sudah selesai", 409, { code: "SESSION_CLOSED" });
@@ -370,7 +377,7 @@ export class PublicOrderService {
       });
     }
 
-    const request = await this.createServiceRequestRow(guest, type);
+    const request = await this.createServiceRequestRow(session, type, note);
     return {
       id: request.id,
       type: request.type,
@@ -383,20 +390,94 @@ export class PublicOrderService {
 
   // ── helpers ─────────────────────────────────────────────────────────────────
 
-  private async createServiceRequestRow(guest: GuestContext, type: ServiceRequestType) {
+  /** Uses the session's current table (the token's may be stale after a move). */
+  private async createServiceRequestRow(
+    session: TableSessionRow,
+    type: ServiceRequestType,
+    note?: string,
+  ) {
     const request = await this.repo.createServiceRequest({
-      tenantId: guest.tenantId,
-      sessionId: guest.sessionId,
-      tableId: guest.tableId,
+      tenantId: session.tenantId,
+      sessionId: session.id,
+      tableId: session.tableId,
       type,
+      note: note || null,
     });
     this.events.emit({
       type: "service_request.created",
-      tenantId: guest.tenantId,
-      sessionId: guest.sessionId,
+      tenantId: session.tenantId,
+      sessionId: session.id,
       data: { requestId: request.id, type },
     });
     return request;
+  }
+
+  // ── Split bill (guest side) ─────────────────────────────────────────────────
+
+  /** Split (or re-split) the table bill; locks it if it was still open. */
+  async splitBill(guest: GuestContext, input: SplitBillInput) {
+    await this.requireOpenSession(guest);
+    return await this.split.split(guest.sessionId, input);
+  }
+
+  async cancelSplit(guest: GuestContext) {
+    await this.requireOpenSession(guest);
+    return await this.split.cancelSplit(guest.sessionId);
+  }
+
+  /** Online payment (Snap) for one share — "pay my part". */
+  async payShare(guest: GuestContext, billId: string, shareId: string) {
+    await this.requireBill(guest, billId);
+    const payment = await this.split.createShareOnlinePayment(guest.sessionId, shareId);
+    return {
+      payment: this.bills.toPaymentView(payment),
+      bill: await this.bills.getBillView(guest.sessionId),
+    };
+  }
+
+  /**
+   * After staff merged this table into another tab, hand the device a token
+   * for the combined session (follows chains of merges).
+   */
+  async followMergedSession(guest: GuestContext) {
+    let session = await this.requireSession(guest);
+    for (let hops = 0; session.mergedIntoSessionId && hops < 5; hops++) {
+      const next = await this.repo.findSessionById(session.mergedIntoSessionId);
+      if (!next) break;
+      session = next;
+    }
+    if (session.id === guest.sessionId || session.status === "closed") {
+      throw new AppError("Sesi meja sudah selesai", 409, { code: "SESSION_CLOSED" });
+    }
+    const [table, tenant] = await Promise.all([
+      this.tableRepo.findTableById(session.tableId),
+      this.tenantRepo.findTenantById(session.tenantId),
+    ]);
+    if (!table || !tenant) throw new AppError("Sesi meja tidak ditemukan", 404);
+    return {
+      guestToken: await signGuestToken({
+        sessionId: session.id,
+        tableId: table.id,
+        tenantId: session.tenantId,
+      }),
+      sessionId: session.id,
+      table: { id: table.id, name: table.name },
+      tenant: {
+        id: tenant.id,
+        name: tenant.name,
+        slug: tenant.slug,
+        tagline: tenant.tagline,
+        isOpen: tenant.isOpen,
+      },
+    };
+  }
+
+  private async requireOpenSession(guest: GuestContext) {
+    const session = await this.requireSession(guest);
+    if (session.status === "closed") {
+      throw new AppError("Sesi meja sudah selesai", 409, { code: "SESSION_CLOSED" });
+    }
+    return session;
   }
 
   private async requireSession(guest: GuestContext) {

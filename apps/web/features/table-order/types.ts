@@ -68,6 +68,18 @@ export type BillPayment = {
   paymentType: string | null
 }
 
+export type BillShare = {
+  id: string
+  label: string
+  amount: number
+  status: "pending" | "paid"
+  paymentMethod: string | null
+  paidAt: string | null
+  items: { orderItemId: string; quantity: number }[]
+  /** In-flight online payment for this share, if any. */
+  payment: BillPayment | null
+}
+
 export type Bill = {
   id: string | null
   status: "open" | "locked" | "paid"
@@ -79,9 +91,12 @@ export type Bill = {
   lockedAt: string | null
   paidAt: string | null
   payment: BillPayment | null
+  /** Set while the bill is divided into shares. */
+  splitMode: "equal" | "items" | "custom" | null
+  shares: BillShare[]
 }
 
-export type ServiceRequestType = "call_waiter" | "water" | "cutlery" | "bill"
+export type ServiceRequestType = "call_waiter" | "water" | "cutlery" | "bill" | "move_table"
 
 export type SessionView = {
   session: {
@@ -89,6 +104,8 @@ export type SessionView = {
     status: "open" | "billing" | "closed"
     openedAt: string
     closedAt: string | null
+    /** Staff merged this table into another tab; the device follows it. */
+    mergedIntoSessionId: string | null
   }
   table: PublicTable | null
   tenant: PublicTenant | null

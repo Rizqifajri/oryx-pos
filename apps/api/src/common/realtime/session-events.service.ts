@@ -7,6 +7,9 @@ export type SessionEventType =
   | "payment.updated"
   | "session.closed"
   | "service_request.created"
+  // Staff moved the party to another table / merged it into another tab.
+  | "session.moved"
+  | "session.merged"
   // Tenant-wide (sessionId null): reach every open guest menu of the tenant.
   | "menu.updated"
   | "tenant.updated";

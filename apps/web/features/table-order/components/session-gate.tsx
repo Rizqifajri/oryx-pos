@@ -5,10 +5,10 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { CircleCheck, QrCode, RefreshCw, WifiOff } from "lucide-react"
 import { toast } from "sonner"
-import { orderRef } from "../format"
+import { orderRef, tableLabel } from "../format"
 import { useSessionEvents, useSessionView } from "../hooks"
 import { useGuest, useTableSession } from "../session-context"
-import type { OrderStatus } from "../types"
+import type { GuestSession, OrderStatus } from "../types"
 import { BottomTabBar } from "./bottom-bars"
 import { MenuItemCardSkeleton } from "./menu-item-card"
 
@@ -57,7 +57,7 @@ const STATUS_TOAST: Partial<Record<OrderStatus, string>> = {
 }
 
 function ReadyShell({ children }: { children: React.ReactNode }) {
-  const { basePath, reopen } = useGuest()
+  const { basePath, reopen, client, guest, switchTo } = useGuest()
   const pathname = usePathname()
   const { data: view, error } = useSessionView()
   useSessionEvents()
@@ -66,6 +66,38 @@ function ReadyShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (error?.status === 401) void reopen()
   }, [error, reopen])
+
+  // Staff merged this table into another tab: move this device over to it.
+  const mergedInto = view?.session.status === "closed" ? view.session.mergedIntoSessionId : null
+  useEffect(() => {
+    if (!mergedInto) return
+    client
+      .post<GuestSession, GuestSession>(`/public/sessions/${guest.sessionId}/follow`)
+      .then((next) => {
+        switchTo(next)
+        toast(`Meja Anda digabung ke ${tableLabel(next.table.name)}`, {
+          description: "Semua pesanan kini ada di satu tagihan.",
+        })
+      })
+      .catch(() => {
+        // The combined tab already closed: fall back to the closed state.
+      })
+  }, [mergedInto, client, guest.sessionId, switchTo])
+
+  // Staff moved the party to another table (same session, new table). Keyed
+  // by session so switching sessions after a merge doesn't also announce this.
+  const tableId = view?.table?.id
+  const lastTable = useRef<{ sessionId: string; tableId: string } | null>(null)
+  useEffect(() => {
+    if (!tableId || !view?.table) return
+    const prev = lastTable.current
+    if (prev && prev.sessionId === view.session.id && prev.tableId !== tableId) {
+      toast(`Anda dipindah ke ${tableLabel(view.table.name)}`, {
+        description: "Pesanan dan tagihan ikut pindah.",
+      })
+    }
+    lastTable.current = { sessionId: view.session.id, tableId }
+  }, [tableId, view?.table, view?.session.id])
 
   // Announce kitchen progress on any page.
   const seen = useRef<Map<string, OrderStatus> | null>(null)
@@ -85,7 +117,7 @@ function ReadyShell({ children }: { children: React.ReactNode }) {
     seen.current = next
   }, [view])
 
-  const closed = view?.session.status === "closed"
+  const closed = view?.session.status === "closed" && !mergedInto
   const onBillPage = pathname === `${basePath}/bill`
 
   return (

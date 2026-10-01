@@ -1,6 +1,7 @@
 "use client"
 
-import { BellRing, Check, GlassWater, ReceiptText, UtensilsCrossed } from "lucide-react"
+import Link from "next/link"
+import { ArrowRightLeft, BellRing, Check, GlassWater, ReceiptText, UtensilsCrossed } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { PermissionGuard } from "@/components/guards"
@@ -17,6 +18,7 @@ const REQUEST_META: Record<ServiceRequestType, { label: string; icon: typeof Bel
   water: { label: "Water", icon: GlassWater },
   cutlery: { label: "Cutlery", icon: UtensilsCrossed },
   bill: { label: "Bring the bill", icon: ReceiptText },
+  move_table: { label: "Wants to move table", icon: ArrowRightLeft },
 }
 
 /** Queue of guest requests from the QR menu ("Panggil pelayan", etc.). */
@@ -38,6 +40,12 @@ export function ServiceRequestsPanel({ tenantId }: { tenantId?: string | null })
               <Icon className="size-4 text-amber-700" />
               <span className="font-semibold">{request.tableName}</span>
               <span>{meta.label}</span>
+              {request.note && <span className="max-w-56 truncate italic text-muted-foreground">“{request.note}”</span>}
+              {request.type === "move_table" && (
+                <Link href="/tables" className="text-xs font-medium underline underline-offset-2">
+                  Move in Tables
+                </Link>
+              )}
               <span className="text-xs text-muted-foreground">{minutesAgo(request.createdAt)}</span>
               <PermissionGuard permissions={[PERMISSIONS.ORDER_UPDATE, PERMISSIONS.ORDER_MANAGE]} requireAll={false}>
                 <Button

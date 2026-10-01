@@ -69,6 +69,8 @@ export class BillService {
         lockedAt: bill.lockedAt,
         paidAt: bill.paidAt,
         payment: payment && this.toPaymentView(payment),
+        splitMode: bill.splitMode,
+        shares: bill.splitMode ? await this.sharesView(bill.id) : [],
       };
     }
 
@@ -80,7 +82,33 @@ export class BillService {
       lockedAt: null,
       paidAt: null,
       payment: null,
+      splitMode: null,
+      shares: [],
     };
+  }
+
+  /** Shares of a split bill, each with its in-flight online payment if any. */
+  async sharesView(billId: string) {
+    const shares = await this.repo.findShares(billId);
+    const now = new Date();
+    return await Promise.all(
+      shares.map(async (share) => {
+        const pending =
+          share.status === "pending"
+            ? (await this.repo.findPendingSharePayments(share.id)).find((p) => p.expiresAt > now)
+            : undefined;
+        return {
+          id: share.id,
+          label: share.label,
+          amount: share.amount,
+          status: share.status,
+          paymentMethod: share.paymentMethod,
+          paidAt: share.paidAt,
+          items: share.items ?? [],
+          payment: pending ? this.toPaymentView(pending) : null,
+        };
+      }),
+    );
   }
 
   toPaymentView(payment: PaymentRequestRow) {
@@ -115,7 +143,8 @@ export class BillService {
         throw new AppError("Tagihan sudah dibayar", 409, { code: "BILL_PAID" });
       }
       if (session.status === "billing" && existing?.status === "locked") {
-        if (existing.paymentMethod === method) return existing;
+        // A split bill is paid share by share; a full-bill request keeps it.
+        if (existing.splitMode || existing.paymentMethod === method) return existing;
         return await this.repo.updateBill(
           existing.id,
           { paymentMethod: method },
@@ -161,6 +190,17 @@ export class BillService {
       const bill = await this.repo.lockBill(billId, tx);
       if (!bill || bill.status !== "locked") return null;
 
+      // Money already received for part of a split bill cannot be undone here.
+      const shares = await this.repo.findShares(billId, tx);
+      if (shares.some((share) => share.status === "paid")) {
+        throw new AppError(
+          "Part of this bill is already paid. Collect the remaining shares instead.",
+          409,
+          { code: "SHARES_PAID" },
+        );
+      }
+      await this.repo.voidPendingShares(billId, tx);
+
       const pending = await this.repo.findPendingBillPayments(billId, tx);
       for (const payment of pending) {
         await this.repo.setPaymentRequestStatus(
@@ -172,7 +212,7 @@ export class BillService {
 
       const unlocked = await this.repo.updateBill(
         billId,
-        { status: "open", paymentMethod: null, lockedAt: null },
+        { status: "open", paymentMethod: null, lockedAt: null, splitMode: null },
         tx,
       );
       await this.repo.updateSession(bill.sessionId, { status: "open" }, tx);
@@ -189,6 +229,11 @@ export class BillService {
    * double tap never opens a second charge.
    */
   async createOnlinePayment(bill: BillRow) {
+    if (bill.splitMode) {
+      throw new AppError("This bill is split. Pay one share at a time.", 409, {
+        code: "BILL_SPLIT",
+      });
+    }
     if (bill.status !== "locked") {
       throw new AppError("Tagihan belum dikunci untuk pembayaran", 409, {
         code: "BILL_NOT_LOCKED",
@@ -197,7 +242,7 @@ export class BillService {
 
     const pending = await this.repo.findPendingBillPayments(bill.id);
     const reusable = pending.find(
-      (p) => p.amount === bill.totalAmount && p.expiresAt > new Date(),
+      (p) => !p.shareId && p.amount === bill.totalAmount && p.expiresAt > new Date(),
     );
     if (reusable) return reusable;
 
@@ -237,22 +282,47 @@ export class BillService {
       itemDetails.push({ id: "ROUNDING", name: "Pembulatan", price: grossAmount - itemsSum, quantity: 1 });
     }
 
-    const midtransOrderId = `BILL-${bill.id.slice(0, 8)}-${Date.now()}`;
+    return await this.createSnapPayment({
+      bill,
+      amount: bill.totalAmount,
+      itemDetails,
+      grossAmount,
+      prefix: "BILL",
+      customerName: `${table.name} - ${tenant.name}`,
+      finishUrl: env.FRONTEND_URL
+        ? `${env.FRONTEND_URL}/order/${tenant.slug}/${table.qrToken}/bill`
+        : undefined,
+    });
+  }
+
+  /**
+   * Creates a Snap charge for a bill (or one share of it) and records the
+   * payment request. `itemDetails` must sum to `grossAmount` (rupiah).
+   */
+  async createSnapPayment(input: {
+    bill: BillRow;
+    amount: number;
+    grossAmount: number;
+    itemDetails: { id: string; name: string; price: number; quantity: number }[];
+    prefix: string;
+    customerName: string;
+    finishUrl?: string;
+    shareId?: string;
+  }) {
+    const { bill, amount, grossAmount, itemDetails, finishUrl } = input;
+    const midtransOrderId = `${input.prefix}-${bill.id.slice(0, 8)}-${Date.now()}`;
     const expiresAt = new Date(Date.now() + ONLINE_PAYMENT_TTL_MS);
-    const billUrl = env.FRONTEND_URL
-      ? `${env.FRONTEND_URL}/order/${tenant.slug}/${table.qrToken}/bill`
-      : undefined;
 
     const transaction = await snapClient.createTransaction({
       transaction_details: { order_id: midtransOrderId, gross_amount: grossAmount },
       item_details: itemDetails,
-      customer_details: { first_name: `${table.name} - ${tenant.name}`.slice(0, 50) },
+      customer_details: { first_name: input.customerName.slice(0, 50) },
       enabled_payments: ["qris", "other_qris", "gopay", "shopeepay"],
       expiry: {
         unit: "minutes",
         duration: ONLINE_PAYMENT_TTL_MS / 60_000,
       },
-      ...(billUrl && { callbacks: { finish: billUrl } }),
+      ...(finishUrl && { callbacks: { finish: finishUrl } }),
     });
 
     const payment = await this.repo.createBillPaymentRequest({
@@ -261,8 +331,9 @@ export class BillService {
       snapToken: transaction.token,
       snapRedirectUrl: transaction.redirect_url,
       midtransOrderId,
-      amount: bill.totalAmount,
+      amount,
       expiresAt,
+      shareId: input.shareId,
     });
 
     this.emitBill(bill, "payment.updated");

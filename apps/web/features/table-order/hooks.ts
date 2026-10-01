@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { GuestApiError } from "./api"
 import { useGuest } from "./session-context"
+import type { SplitPayload } from "@/lib/split-bill"
 import type {
   Bill,
   BillPayment,
@@ -164,11 +165,59 @@ export function usePaymentStatus(paymentId: string | null | undefined, enabled: 
 export function useServiceRequest() {
   const { client, guest } = useGuest()
   const invalidate = useInvalidateSession()
-  return useMutation<{ id: string; retryAt: string }, GuestApiError, ServiceRequestType>({
-    mutationFn: (type) =>
-      client.post(`/public/sessions/${guest.sessionId}/service-requests`, { type }),
+  return useMutation<
+    { id: string; retryAt: string },
+    GuestApiError,
+    ServiceRequestType | { type: ServiceRequestType; note?: string }
+  >({
+    mutationFn: (input) =>
+      client.post(
+        `/public/sessions/${guest.sessionId}/service-requests`,
+        typeof input === "string" ? { type: input } : input,
+      ),
     onSettled: invalidate,
   })
+}
+
+/** Split (or re-split) the table bill; locks it for payment. */
+export function useSplitBill() {
+  const { client, guest } = useGuest()
+  const invalidate = useInvalidateSession()
+  return useMutation<Bill, GuestApiError, SplitPayload>({
+    mutationFn: (payload) => client.post(`/public/sessions/${guest.sessionId}/bill/split`, payload),
+    onSettled: invalidate,
+  })
+}
+
+export function useCancelSplit() {
+  const { client, guest } = useGuest()
+  const invalidate = useInvalidateSession()
+  return useMutation<Bill, GuestApiError, void>({
+    mutationFn: () => client.post(`/public/sessions/${guest.sessionId}/bill/split/cancel`),
+    onSettled: invalidate,
+  })
+}
+
+/** Online payment (Snap) for one share — "bayar bagian saya". */
+export function usePayShare() {
+  const { client } = useGuest()
+  const invalidate = useInvalidateSession()
+  return useMutation<
+    { payment: BillPayment; bill: Bill },
+    GuestApiError,
+    { billId: string; shareId: string }
+  >({
+    mutationFn: ({ billId, shareId }) =>
+      client.post(`/public/bills/${billId}/shares/${shareId}/payments`),
+    onSettled: invalidate,
+  })
+}
+
+/** The table as it is now (staff may have moved the party). */
+export function useLiveTable() {
+  const { guest } = useGuest()
+  const { data: view } = useSessionView()
+  return view?.table ?? guest.table
 }
 
 /**
