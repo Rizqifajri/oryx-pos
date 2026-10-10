@@ -1,4 +1,5 @@
 import { createApp } from "./bootstrap";
+import '@nestjs/core';
 
 // CommonJS output, so no top-level await.
 async function bootstrap() {
