@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 
+import { PageHeader } from "@/components/page-header"
 import { TenantFilter } from "@/components/tenant-filter"
 import { TableSection } from "../components/table-section"
 
@@ -10,13 +11,11 @@ export default function TablesPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Table Management</h1>
-          <p className="text-sm text-muted-foreground">Manage restaurant tables and their status.</p>
-        </div>
-        <TenantFilter value={tenantId} onChange={setTenantId} />
-      </div>
+      <PageHeader
+        title="Tables"
+        description="Seat guests, share table QR codes, and settle table bills."
+        actions={<TenantFilter value={tenantId} onChange={setTenantId} />}
+      />
 
       <TableSection tenantId={tenantId} />
     </div>

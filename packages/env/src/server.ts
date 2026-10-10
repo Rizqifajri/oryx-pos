@@ -16,6 +16,14 @@ const schema = z.object({
   R2_SECRET_ACCESS_KEY: z.string().optional(),
   R2_BUCKET_NAME: z.string().optional(),
   R2_PUBLIC_URL: z.string().url().optional(),
+  // Midtrans Payment Gateway
+  MIDTRANS_SERVER_KEY: z.string().min(1),
+  MIDTRANS_CLIENT_KEY: z.string().min(1),
+  MIDTRANS_IS_PRODUCTION: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((val) => val === "true"),
+  FRONTEND_URL: z.string().url().optional(),
 });
 
 export const env = schema.parse(process.env);

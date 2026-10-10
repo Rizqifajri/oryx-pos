@@ -17,11 +17,13 @@ import {
   User,
   Users,
   LayoutGrid,
+  Wallet,
 } from "lucide-react"
 
 import { getStoredUser, useLogout } from "@/features/auth/hooks/use-auth"
 import { useMe } from "@/features/auth/hooks/use-me"
 import { useUserPermissions } from "@/features/auth/hooks/use-permissions"
+import { useOrdersAttentionCount } from "@/features/order/hooks/use-orders"
 import { filterPermission } from "@/lib/filter-permission"
 import { PERMISSIONS, type Permission } from "@/constants/permissions"
 import { ConfirmationModal } from "@/components/confirmation-modals"
@@ -34,6 +36,7 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
@@ -66,11 +69,13 @@ const navGroups: NavGroup[] = [
     label: "Operations",
     scopes: ["TENANT"],
     items: [
-      { title: "POS Kasir", href: "/pos", icon: Monitor, permissions: [PERMISSIONS.ORDER_MANAGE] },
-      { title: "Menu", href: "/menu", icon: BookOpen, permissions: [PERMISSIONS.MENU_MANAGE] },
+      // Ordered along a service: take orders → run the floor → cook → get paid.
+      { title: "POS Cashier", href: "/pos", icon: Monitor, permissions: [PERMISSIONS.ORDER_MANAGE] },
       { title: "Tables", href: "/tables", icon: LayoutGrid, permissions: [PERMISSIONS.TABLE_MANAGE] },
+      { title: "Orders", href: "/order", icon: ShoppingCart, permissions: [PERMISSIONS.ORDER_MANAGE] },
+      { title: "Payments", href: "/payments", icon: Wallet, permissions: [PERMISSIONS.TRANSACTION_LIST] },
+      { title: "Menu", href: "/menu", icon: BookOpen, permissions: [PERMISSIONS.MENU_MANAGE] },
       { title: "Inventory", href: "/inventory", icon: Package, permissions: [PERMISSIONS.MENU_MANAGE] },
-      { title: "Order", href: "/order", icon: ShoppingCart, permissions: [PERMISSIONS.ORDER_MANAGE] },
     ],
   },
   {
@@ -101,6 +106,9 @@ export function AppSidebar() {
   const { data: meData } = useMe()
   const [userScope, setUserScope] = useState<"GLOBAL" | "TENANT" | null>(null)
   const [isMounted, setIsMounted] = useState(false)
+  const attention = useOrdersAttentionCount(
+    userScope === "TENANT" && userPermissions.includes(PERMISSIONS.ORDER_MANAGE),
+  )
 
   // Load user scope from localStorage on mount for initial render (client-side only)
   useEffect(() => {
@@ -176,6 +184,12 @@ export function AppSidebar() {
                           <span>{item.title}</span>
                         </Link>
                       </SidebarMenuButton>
+                      {item.href === "/order" && attention > 0 && (
+                        <SidebarMenuBadge className="bg-amber-100 text-amber-800">
+                          {attention}
+                          <span className="sr-only"> need attention</span>
+                        </SidebarMenuBadge>
+                      )}
                     </SidebarMenuItem>
                   ))}
                 </SidebarMenu>

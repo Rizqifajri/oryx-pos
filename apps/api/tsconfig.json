@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "node16",
+    "moduleResolution": "node16",
+    "lib": ["ES2023"],
+    "types": ["node"],
+
+    // NestJS dependency injection reads constructor parameter types from
+    // `design:paramtypes`, which only tsc can emit. This is why apps/api does
+    // not extend @dio-sys-be/config/tsconfig.base.json: its
+    // `verbatimModuleSyntax: true` erases `import type` before metadata is
+    // emitted, and its `moduleResolution: "bundler"` is incompatible with the
+    // CommonJS output Nest expects.
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "verbatimModuleSyntax": false,
+
+    "strict": true,
+    "strictPropertyInitialization": false,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "declaration": false,
+    "sourceMap": true,
+    "incremental": true,
+    // Must live inside outDir: nest-cli's deleteOutDir wipes dist on every
+    // build, and a build-info file outside it would then claim files that no
+    // longer exist are up to date, silently skipping their emit.
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "outDir": "./dist",
+    // No path aliases and no baseUrl: tsc does not rewrite aliases in emitted
+    // JS, so `node dist/main` and the Vercel handler would fail to resolve them
+    // at runtime. apps/api uses relative imports throughout.
+    "rootDir": "./"
+  },
+  "include": ["src/**/*.ts", "api/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 
+import { PageHeader } from "@/components/page-header"
 import { TenantFilter } from "@/components/tenant-filter"
 import { OrderSection } from "../components/order-section"
 
@@ -10,13 +11,11 @@ export function OrdersPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Orders</h1>
-          <p className="text-sm text-muted-foreground">Monitor and update incoming dine-in orders.</p>
-        </div>
-        <TenantFilter value={tenantId} onChange={setTenantId} />
-      </div>
+      <PageHeader
+        title="Orders"
+        description="Kitchen board for POS and QR orders. Guest requests appear on top."
+        actions={<TenantFilter value={tenantId} onChange={setTenantId} />}
+      />
       <OrderSection tenantId={tenantId} />
     </div>
   )

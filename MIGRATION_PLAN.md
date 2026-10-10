@@ -71,7 +71,7 @@ Real fix is a coordinated FE+BE change: move to `httpOnly`, `Secure`, `SameSite`
 
 ### 7. Test suite
 
-Neither app has a test runner configured. No regression safety net exists for any of the fixes in this pass or future refactors — everything above was verified manually against the dev DB / dev server, not via automated tests. Recommend starting with the doc's §27 priorities once a framework is chosen (Vitest fits both an Express + TS backend and a Next.js frontend):
+Neither app has a test runner configured. No regression safety net exists for any of the fixes in this pass or future refactors — everything above was verified manually against the dev DB / dev server, not via automated tests. Recommend starting with the doc's §27 priorities once a framework is chosen (Vitest fits the Next.js frontend; the NestJS backend has first-class Jest support via `@nestjs/testing`, and its services are now constructor-injected so repositories can be mocked directly):
 - Tenant isolation: Tenant A creates a resource, Tenant B's request for it must fail.
 - RBAC: permission-holder allowed, non-holder forbidden, GLOBAL bypass works.
 - Order state machine: valid transitions succeed, invalid ones are rejected, price is always server-computed.

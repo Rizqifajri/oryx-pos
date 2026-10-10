@@ -9,7 +9,7 @@
   "packageManager": "npm@11.11.0",
   "scripts": {
     "dev": "turbo run dev",
-    "dev:api": "turbo run dev --filter=server",
+    "dev:api": "turbo run dev --filter=api",
     "dev:web": "turbo run dev --filter=dio-systems",
     "build": "turbo run build",
     "start": "turbo run start",

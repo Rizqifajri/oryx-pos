@@ -6,6 +6,8 @@ export type OrderItem = {
   menuName: string
   quantity: number
   price: number
+  /** Guest's kitchen note (QR orders). */
+  note?: string | null
 }
 
 export type Order = {
@@ -17,7 +19,11 @@ export type Order = {
   items: OrderItem[]
   totalPrice: number
   paymentMethod?: string | null
-  notes?: string
+  customerName?: string | null
+  /** Set for guest QR orders; these are paid through the table bill. */
+  sessionId?: string | null
+  note?: string | null
+  submittedAt?: string
   createdAt: string
 }
 

@@ -1,6 +1,7 @@
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { AppSidebar } from "@/components/side-bar"
+import { Toaster } from "@/components/ui/sonner"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -14,6 +15,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </SidebarInset>
       </SidebarProvider>
+      <Toaster position="top-right" />
     </TooltipProvider>
   )
 }

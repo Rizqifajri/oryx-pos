@@ -60,7 +60,7 @@ export function MenuFormDialog({
     formState: { errors },
   } = useForm<CreateMenuValues>({
     resolver: zodResolver(createMenuSchema) as any,
-    defaultValues: { isAvailable: true },
+    defaultValues: { isAvailable: true, isPopular: false, badge: "" },
   });
 
   useEffect(() => {
@@ -71,9 +71,11 @@ export function MenuFormDialog({
         description: editTarget.description ?? "",
         price: editTarget.price / 100,
         isAvailable: editTarget.isAvailable,
+        isPopular: editTarget.isPopular ?? false,
+        badge: editTarget.badge ?? "",
       });
     } else {
-      reset({ isAvailable: true, price: undefined, categoryId: "" });
+      reset({ isAvailable: true, isPopular: false, badge: "", price: undefined, categoryId: "" });
     }
     setImageFile(null);
     setImageError(undefined);
@@ -189,6 +191,33 @@ export function MenuFormDialog({
                 error={imageError}
                 onChange={setImageFile}
               />
+
+              <Field>
+                <FieldLabel htmlFor='menu-badge'>Badge on QR menu</FieldLabel>
+                <select
+                  id='menu-badge'
+                  className={cn(inputClass, "bg-background")}
+                  {...register("badge")}
+                >
+                  <option value=''>None</option>
+                  <option value='chef_pick'>Chef&apos;s Pick</option>
+                  <option value='best_seller'>Best Seller</option>
+                  <option value='new'>New (Baru)</option>
+                  <option value='spicy'>Spicy (Pedas)</option>
+                </select>
+              </Field>
+
+              <div className='flex items-center gap-2 pt-1'>
+                <input
+                  id='menu-popular'
+                  type='checkbox'
+                  className='size-4 rounded border-input'
+                  {...register("isPopular")}
+                />
+                <label htmlFor='menu-popular' className='text-sm font-medium'>
+                  Popular (shown first on the guest QR menu)
+                </label>
+              </div>
 
               <div className='flex items-center gap-2 pt-1'>
                 <input

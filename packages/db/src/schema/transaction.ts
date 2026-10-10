@@ -1,5 +1,6 @@
 import { date, integer, pgTable, text, uuid } from "drizzle-orm/pg-core";
 import { orders } from "./order";
+import { paymentRequests } from "./payment-request";
 import { tenants } from "./tenant";
 
 export const transactions = pgTable("transactions", {
@@ -10,6 +11,12 @@ export const transactions = pgTable("transactions", {
   orderId: uuid("order_id")
     .references(() => orders.id)
     .notNull(),
+  // Link to payment request if paid via Midtrans
+  paymentRequestId: uuid("payment_request_id").references(
+    () => paymentRequests.id,
+  ),
+  // Midtrans transaction ID for reference
+  midtransTransactionId: text("midtrans_transaction_id"),
   // All amounts are stored as integer cents. `subtotal` is the menu-based
   // order total; `taxAmount` and `serviceAmount` are server-computed charges;
   // `totalAmount` = subtotal + tax + service (what the customer actually pays).

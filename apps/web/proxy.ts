@@ -12,13 +12,13 @@ function isPublicRoute(pathname: string): boolean {
 }
 
 /**
- * Customer QR ordering pages (`/<tableId>/menu`, `/<tableId>/cart`) are reached
+ * Guest table-ordering pages (`/order/<tenantSlug>/<tableToken>/…`) are reached
  * by scanning a table QR code with no account — they must never require auth,
  * and (unlike the login/register pages) a signed-in staff member previewing
  * them should not be bounced to the dashboard either.
  */
 function isCustomerRoute(pathname: string): boolean {
-  return /^\/[^/]+\/(menu|cart)\/?$/.test(pathname);
+  return /^\/order\/[^/]+\/[^/]+(\/(cart|bill|help))?\/?$/.test(pathname);
 }
 
 /**
@@ -43,7 +43,7 @@ async function verifyToken(token: string): Promise<boolean> {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Customer QR pages are always public, regardless of auth state.
+  // Guest table-ordering pages are always public, regardless of auth state.
   if (isCustomerRoute(pathname)) {
     return NextResponse.next();
   }

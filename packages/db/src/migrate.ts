@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { migrate } from "drizzle-orm/neon-serverless/migrator";
 
-dotenv.config({ path: "../../apps/server/.env" });
+dotenv.config({ path: "../../apps/api/.env" });
 
 const runMigrations = async () => {
   if (!process.env.DATABASE_URL) {

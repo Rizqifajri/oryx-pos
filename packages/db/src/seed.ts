@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { permissions, rolePermissions, roles, users } from "./schema";
 
-dotenv.config({ path: "../../apps/server/.env" });
+dotenv.config({ path: "../../apps/api/.env" });
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not set");

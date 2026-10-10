@@ -8,6 +8,9 @@ export const createMenuSchema = z.object({
   price: z.coerce.number().positive("Price must be greater than 0"),
   imageUrl: z.string().url().or(z.literal("")).optional(),
   isAvailable: z.boolean().default(true),
+  // Guest QR menu: listed under "Pilihan Populer", and an optional image badge.
+  isPopular: z.boolean().default(false),
+  badge: z.enum(["", "chef_pick", "best_seller", "new", "spicy"]).optional(),
 })
 
 export const updateMenuSchema = createMenuSchema.partial()

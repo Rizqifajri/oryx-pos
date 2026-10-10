@@ -45,12 +45,12 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
 }
 
 function persistSession(data: LoginData) {
-  localStorage.setItem("access_token", data.accessToken)
-  localStorage.setItem("refresh_token", data.refreshToken)
+  localStorage.setItem("access_token", data?.accessToken)
+  localStorage.setItem("refresh_token", data?.refreshToken)
 
-  let user = data.user
+  let user = data?.user
   if (!user) {
-    const payload = decodeJwtPayload(data.accessToken)
+    const payload = decodeJwtPayload(data?.accessToken)
     if (payload) {
       user = {
         id: (payload.sub ?? payload.id) as string,
@@ -64,7 +64,7 @@ function persistSession(data: LoginData) {
   }
 
   localStorage.setItem("user", JSON.stringify(user ?? null))
-  setTokenCookie("access_token", data.accessToken)
+  setTokenCookie("access_token", data?.accessToken)
 }
 
 export function clearSession() {
@@ -94,7 +94,7 @@ export function useLogin() {
       persistSession(data)
 
       const params = new URLSearchParams(window.location.search)
-      const callbackUrl = params.get("callbackUrl") ?? "/"
+      const callbackUrl = params.get("callbackUrl") ?? "/dashboard"
       router.push(callbackUrl)
     },
   })

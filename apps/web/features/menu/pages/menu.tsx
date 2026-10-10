@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 
+import { PageHeader } from "@/components/page-header"
 import { TenantFilter } from "@/components/tenant-filter"
 import { CategorySection } from "../components/category-section"
 import { MenuSection } from "../components/menu-section"
@@ -15,13 +16,11 @@ export function MenuPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Menu Management</h1>
-          <p className="text-sm text-muted-foreground">Manage your restaurant menu items and categories.</p>
-        </div>
-        <TenantFilter value={tenantId} onChange={setTenantId} />
-      </div>
+      <PageHeader
+        title="Menu"
+        description="Items and categories. Changes appear on guests’ QR menus instantly."
+        actions={<TenantFilter value={tenantId} onChange={setTenantId} />}
+      />
 
       <div className="flex gap-1 border-b">
         {TABS.map((t) => (

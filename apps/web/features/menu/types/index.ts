@@ -14,8 +14,12 @@ export interface Menu {
   price: number
   imageUrl: string
   isAvailable: boolean
+  isPopular?: boolean
+  badge?: MenuBadge | null
   createdAt: string
 }
+
+export type MenuBadge = "chef_pick" | "best_seller" | "new" | "spicy"
 
 export interface MenuFilters {
   tenantId?: string
@@ -31,6 +35,8 @@ export interface CreateMenuPayload {
   price: number
   imageUrl?: string
   isAvailable: boolean
+  isPopular?: boolean
+  badge?: MenuBadge | null
 }
 
 export interface UpdateMenuPayload {
@@ -41,6 +47,8 @@ export interface UpdateMenuPayload {
   categoryId?: string
   imageUrl?: string
   isAvailable?: boolean
+  isPopular?: boolean
+  badge?: MenuBadge | null
 }
 
 export interface BulkAvailabilityPayload {
