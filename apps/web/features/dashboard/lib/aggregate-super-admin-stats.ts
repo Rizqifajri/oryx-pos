@@ -21,7 +21,7 @@ export function aggregateSuperAdminStats(data: SuperAdminRawData): SuperAdminDas
 
   const usersByTenantSegments: StatSegment[] = tenantList
     .filter((t) => t.userCount > 0)
-    .slice(0, 6)
+    .slice(0, 8)
     .map((tenant, index) => ({
       key: tenant.tenantId,
       label: tenant.name,

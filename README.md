@@ -1,57 +1,89 @@
-# dio-sys
+# Oryx POS
 
-Multi-tenant dine-in restaurant ordering system. [Turborepo](https://turborepo.com)-powered monorepo (npm workspaces) merged from the formerly-separate `dio-sys-be` and `dio-sys-fe` repositories (full commit history preserved via `git subtree`).
+Multi-tenant point-of-sale and QR table-ordering system for restaurants. Each restaurant (a *tenant*) gets a staff dashboard and POS; its guests scan a QR code on the table to order and pay from their phone.
 
-See `docs/Recovery Agent Prompt.md` for the recovery/refactor process this repo follows, and `ARCHITECTURE_AUDIT.md` / `MIGRATION_PLAN.md` (repo root, once written) for the current state and roadmap.
+## What it does
 
-## Structure
+- **POS cashier**: take dine-in orders onto a table's tab, or takeout orders paid on the spot.
+- **QR table ordering**: guests scan, browse the menu, send rounds to the kitchen, call a waiter, and pay the whole bill, or split it, through Midtrans (QRIS, e-wallets, cards) or at the cashier.
+- **Floor management**: live table sessions, move or merge tables, settle bills, handle guest requests.
+- **Kitchen board**: orders move `NEW → PROCESSING → COMPLETED` (or `CANCELED`).
+- **Menu & inventory**: items, categories, photos (Cloudflare R2), in/out-of-stock toggles.
+- **Staff & access**: users, roles and fine-grained permissions per restaurant.
+- **Platform admin**: a super-admin manages every restaurant from one place.
+
+## Stack
+
+| Part | Tech |
+| --- | --- |
+| `apps/api` | NestJS 11, TypeScript, Zod, JWT (`jose`), Midtrans, Cloudflare R2 |
+| `apps/web` | Next.js 16 (App Router), React 19, TanStack Query, react-hook-form, Tailwind, shadcn/ui |
+| `packages/db` | Drizzle ORM on PostgreSQL (Neon) |
+| `packages/env` | Zod-validated environment for the API |
+| Tooling | Turborepo, npm workspaces |
+
+## Repository layout
 
 ```
 apps/
-  api/        # NestJS + TypeScript API (migrated from the former Express `apps/server`)
-  web/        # Next.js 16 + React 19 frontend (was dio-sys-fe)
+  api/            NestJS API, served at /api/v1
+    src/modules/  one folder per domain: controller → service → repository
+    src/scripts/  check-permissions.ts, gen-api-docs.ts, set-r2-cors.ts
+    api/index.ts  Vercel serverless entry
+  web/            Next.js app (staff dashboard, POS, guest QR pages)
+    app/          routes: (dashboard), (customer), (auth)
+    features/     one folder per domain: pages, components, hooks, types
 packages/
-  db/         # Drizzle ORM schema, migrations, seed (@dio-sys-be/db)
-  env/        # Zod-validated env loader (@dio-sys-be/env)
-  config/     # Shared TypeScript base config (@dio-sys-be/config)
-docs/
-  BACKEND_API.md   # API contract (canonical — was duplicated with drift in both repos, backend copy kept)
+  db/             schema, migrations, seed, one-off maintenance scripts
+  env/            API environment schema
+  config/         shared TypeScript config
+docs/             architecture, API reference, deployment, known issues
 ```
 
 ## Getting started
 
+Requirements: Node 20+, a PostgreSQL database (a free [Neon](https://neon.tech) project works), and Midtrans sandbox keys (the API won't start without them).
+
 ```bash
 npm install
 
-# backend — needs apps/api/.env (see apps/api/.env.example)
-#   DATABASE_URL, JWT_SECRET, JWT_REFRESH_SECRET, CORS_ORIGIN,
-#   and R2_* for image uploads (see "Image uploads" below)
-npm run db:push
-npm run db:seed
-npm run dev:api      # http://localhost:3000
+cp apps/api/.env.example apps/api/.env              # fill in DATABASE_URL, secrets, Midtrans keys
+cp apps/web/.env.local.example apps/web/.env.local  # JWT_SECRET must equal the API's
 
-# frontend — needs apps/web/.env.local (NEXT_PUBLIC_API_URL, JWT_SECRET)
-npm run dev:web      # http://localhost:3001
+npm run db:push    # create the schema
+npm run db:seed    # permissions + super-admin
+
+npm run dev        # API on http://localhost:3000, web on http://localhost:3001
 ```
+
+Sign in at http://localhost:3001/login as the seeded super-admin, `admin@system.local` / `Admin@123`, and change that password. To try a restaurant account, register one at `/register`; its first user becomes that restaurant's Admin.
 
 ## Scripts
 
-All tasks run through Turborepo (`turbo.json` defines the pipeline: caching, `^build` ordering, and env-var hashing).
+Run from the repo root; Turborepo caches `build`, `check-types` and `lint`.
 
-- `npm run dev` — run every app in dev (parallel, uncached, persistent)
-- `npm run dev:api` / `npm run dev:web` — run a single app (`--filter`)
-- `npm run build` — build all workspaces in dependency order (cached; outputs `dist/**`, `.next/**`)
-- `npm run check-types` / `npm run lint` — across all workspaces (cached)
-- `npm run start` — start built apps (depends on `build`)
-- `npm run db:push` / `db:generate` / `db:migrate` / `db:seed` / `db:studio` — database workspace (`@dio-sys-be/db`, uncached)
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | API and web in watch mode |
+| `npm run dev:api` / `npm run dev:web` | one app only |
+| `npm run build` | build every workspace |
+| `npm run check-types` / `npm run lint` | type-check / lint every workspace |
+| `npm run db:push` | sync the Drizzle schema to the database |
+| `npm run db:seed` | seed permissions and the super-admin (idempotent) |
+| `npm run db:studio` | browse the database |
 
-Turbo caches task outputs by content hash — re-running an unchanged task replays instantly (`>>> FULL TURBO`). The cache lives in `.turbo/` (git-ignored). Ad-hoc filtering: `npx turbo run build --filter=api`.
+API-only scripts, run from `apps/api` with `npx tsx`:
 
-## Image uploads (Cloudflare R2)
+| Script | What it does |
+| --- | --- |
+| `src/scripts/check-permissions.ts` | end-to-end permission check against a running API (creates a throwaway tenant) |
+| `src/scripts/gen-api-docs.ts` | regenerate `docs/api.md` from the controllers |
+| `src/scripts/set-r2-cors.ts` | allow browser uploads to the R2 bucket (`npm run r2:cors`) |
 
-Menu images are uploaded **straight from the browser** to Cloudflare R2 (S3-compatible) using a presigned URL — the file never passes through this API. The web app calls `POST /api/v1/uploads/menu` (auth + `menu:manage|create|update`) with the file's content type and size; the backend validates them (JPEG/PNG/WebP/GIF, ≤5 MB), reserves the key `menus/<tenantId>/<uuid>.<ext>`, and returns a short-lived PUT URL plus the public URL the object will be served from. The browser then PUTs the file to R2 directly, with the same `Content-Type` that was signed.
+## Documentation
 
-To enable it, set the `R2_*` vars in `apps/api/.env` (template in `.env.example`):
-`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`. Until they're set the upload endpoint returns a clear `503`; the rest of the app runs normally. The bucket must be publicly readable (enable the `r2.dev` URL or attach a custom domain, and set `R2_PUBLIC_URL` to that origin), and it needs a CORS policy allowing browser PUTs — run `npm run r2:cors --workspace apps/api` once per bucket.
-
-No test runner is configured yet in either app (tracked in `MIGRATION_PLAN.md`).
+- [Architecture](docs/architecture.md): how requests, permissions, multi-tenancy, guest sessions, bills and payments work.
+- [API reference](docs/api.md): every route and the permission it requires (generated).
+- [Deployment](docs/deployment.md): Vercel, environment variables, Midtrans and R2 setup.
+- [Known issues](docs/known-issues.md): open problems, in priority order.
+- [Guest menu design](docs/guest-menu-design.md): design reference for the QR ordering screens.

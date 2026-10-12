@@ -91,10 +91,10 @@ export function UserFormDialog({ open, onOpenChange, editTarget, filterTenantId 
     if (!role) return null
     return (
       <span className={cn(
-        "ml-1.5 rounded-full px-1.5 py-0.5 text-xs font-medium",
+        "ml-1.5 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset",
         role.scope === "GLOBAL"
-          ? "bg-purple-100 text-purple-700"
-          : "bg-blue-100 text-blue-700",
+          ? "bg-purple-50 text-purple-700 ring-purple-600/20"
+          : "bg-blue-50 text-blue-700 ring-blue-600/20",
       )}>
         {role.scope === "GLOBAL" ? "Global" : "Tenant"}
       </span>

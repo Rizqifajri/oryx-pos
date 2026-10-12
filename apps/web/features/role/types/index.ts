@@ -6,9 +6,3 @@ export type RoleRecord = {
   createdAt: string
   permissions?: Array<{ id: string; name: string }>
 }
-
-export type PermissionRecord = {
-  id: string
-  name: string
-  createdAt: string
-}

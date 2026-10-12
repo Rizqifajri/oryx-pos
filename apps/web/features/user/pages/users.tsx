@@ -1,32 +1,26 @@
 "use client"
 
 import { useState } from "react"
-import { getStoredUser } from "@/features/auth/hooks/use-auth"
+import { PageHeader } from "@/components/page-header"
 import { TenantFilter } from "@/components/tenant-filter"
+import { useMe } from "@/features/auth/hooks/use-me"
 import { UserSection } from "../components/user-section"
 
 export function UsersPage() {
   const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null)
-  const userScope = getStoredUser()?.scope
+  const { data: me } = useMe()
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold">User Management</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage user accounts and assign roles. Users with a Global-scoped role have full access to all features.
-          </p>
-        </div>
-        
-        {userScope === "GLOBAL" && (
-          <TenantFilter
-            value={selectedTenantId}
-            onChange={setSelectedTenantId}
-          />
-        )}
-      </div>
-      
+      <PageHeader
+        title="Users"
+        description="Staff accounts. What each person can do comes from their role."
+        actions={
+          me?.scope === "GLOBAL" && (
+            <TenantFilter value={selectedTenantId} onChange={setSelectedTenantId} />
+          )
+        }
+      />
       <UserSection tenantId={selectedTenantId} />
     </div>
   )

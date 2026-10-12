@@ -38,14 +38,14 @@ function LoginFormInner() {
     <form onSubmit={handleSubmit(onSubmit)} noValidate>
       <FieldSet disabled={isPending}>
         {justRegistered && (
-          <p className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+          <p role="status" className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
             Account created — sign in to continue.
           </p>
         )}
 
         {error && (
-          <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-            {error.message}
+          <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+            {error.statusCode === 401 ? "Wrong email or password." : error.message}
           </p>
         )}
 
@@ -77,15 +77,6 @@ function LoginFormInner() {
           </Field>
         </FieldGroup>
 
-        <div className="flex justify-end">
-          <a
-            href="/auth/forgot-password"
-            className="text-xs text-zinc-500 hover:text-zinc-600 hover:underline"
-          >
-            Forgot password?
-          </a>
-        </div>
-
         <Button
           type="submit"
           size="lg"
@@ -111,7 +102,7 @@ function LoginFormInner() {
 
 export function LoginForm() {
   return (
-    <Suspense fallback={<FieldSet disabled><div className="h-" /></FieldSet>}>
+    <Suspense fallback={null}>
       <LoginFormInner />
     </Suspense>
   )

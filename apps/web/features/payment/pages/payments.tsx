@@ -221,7 +221,7 @@ function SkeletonRows({ cols }: { cols: number }) {
 function EmptyRow({ cols, text }: { cols: number; text: string }) {
   return (
     <tr>
-      <td colSpan={cols} className="px-4 py-12 text-center text-muted-foreground">
+      <td colSpan={cols} className="px-4 py-8 text-center text-muted-foreground">
         {text}
       </td>
     </tr>

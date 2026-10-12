@@ -37,8 +37,7 @@ export function TenantSection() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold">Tenants</h2>
+      <div className="flex items-center justify-end">
         <PermissionGuard permissions={PERMISSIONS.TENANT_CREATE}>
           <Button size="sm" onClick={openAdd}>
             <Plus />

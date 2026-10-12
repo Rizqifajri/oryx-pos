@@ -1,5 +1,7 @@
 # Public Table Menu — Design Reference
 
+> Implemented in `apps/web/features/table-order` and `app/(public)/order`; colours are the `pm-*` tokens in `apps/web/app/globals.css`.
+
 > Source: Google Stitch preview "Maison Table / Table Menu" (mobile, tablet, desktop frames).
 > Target: `apps/web` (Next.js 16 App Router, React 19, Tailwind, shadcn/ui on Radix, TanStack Query + Axios, Sonner).
 > Scope: the **public, unauthenticated** customer menu that opens when a guest scans the QR code on a table.

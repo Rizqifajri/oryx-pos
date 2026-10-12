@@ -8,33 +8,38 @@ import { aggregateTenantStats } from "../lib/aggregate-tenant-stats"
 import type { DashboardOrder } from "../types"
 import { dashboardKeys } from "./keys"
 
-export function useTenantDashboardStats(tenantId: string, enabled = true) {
+/**
+ * Each source is fetched only if the user may read it, so a limited role sees
+ * a smaller dashboard instead of 403s and a "failed to load" banner.
+ */
+export function useTenantDashboardStats(tenantId: string, can: (permission: string) => boolean) {
+  const on = !!tenantId
   const results = useQueries({
     queries: [
       {
         queryKey: [...dashboardKeys.all, "tenant", tenantId, "me"],
         queryFn: () => api.get<Tenant>("/tenants/me"),
-        enabled: enabled && !!tenantId,
+        enabled: on,
       },
       {
         queryKey: [...dashboardKeys.all, "tenant", tenantId, "categories"],
         queryFn: () => api.get<Category[]>(`/categories/tenant/${tenantId}`),
-        enabled: enabled && !!tenantId,
+        enabled: on && can("category:list"),
       },
       {
         queryKey: [...dashboardKeys.all, "tenant", tenantId, "menus"],
         queryFn: () => api.get<Menu[]>(`/menus/tenant/${tenantId}`),
-        enabled: enabled && !!tenantId,
+        enabled: on && can("menu:list"),
       },
       {
         queryKey: [...dashboardKeys.all, "tenant", tenantId, "users"],
         queryFn: () => api.get<User[]>(`/users/tenant/${tenantId}`),
-        enabled: enabled && !!tenantId,
+        enabled: on && can("user:list"),
       },
       {
         queryKey: [...dashboardKeys.all, "tenant", tenantId, "orders"],
         queryFn: () => api.get<DashboardOrder[]>("/orders"),
-        enabled: enabled && !!tenantId,
+        enabled: on && can("order:list"),
       },
     ],
   })

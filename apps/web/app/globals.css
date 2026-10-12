@@ -130,7 +130,7 @@
     }
 }
 /* ─── Public table menu (/order/…) ─────────────────────────────────────────
-   Warm café palette from docs/public-table-menu-design.md. Prefixed `pm-` so
+   Warm café palette from docs/guest-menu-design.md. Prefixed `pm-` so
    the utilities (bg-pm-ink, text-pm-muted…) never collide with shadcn tokens.
    Light-only until a dark spec exists. */
 @theme {

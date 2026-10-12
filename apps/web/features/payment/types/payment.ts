@@ -17,15 +17,3 @@ export interface Payment {
   createdAt: string;
   updatedAt: string;
 }
-
-export interface CreatePaymentRequest {
-  orderId: string;
-}
-
-export interface CreatePaymentResponse {
-  id: string;
-  snapToken: string;
-  snapRedirectUrl: string;
-  amount: number;
-  expiresAt: string;
-}

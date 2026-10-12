@@ -51,8 +51,7 @@ export function UserSection({ tenantId }: UserSectionProps = {}) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold">Users</h2>
+      <div className="flex items-center justify-end">
         <PermissionGuard permissions={PERMISSIONS.USER_MANAGE}>
           <Button size="sm" onClick={openAdd}>
             <Plus />

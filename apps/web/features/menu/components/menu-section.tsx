@@ -16,6 +16,7 @@ import { useMenus, useDeleteMenu, useToggleAvailability } from "../hooks/use-men
 import { useCategories } from "../hooks/use-categories"
 import { MenuFormDialog } from "./menu-form-dialog"
 import type { Menu } from "../types"
+import { formatIdr } from "@/lib/format"
 
 interface MenuSectionProps {
   tenantId?: string | null
@@ -55,13 +56,7 @@ export function MenuSection({ tenantId }: MenuSectionProps = {}) {
     return categories.find((c) => c.id === id)?.name ?? "—"
   }
 
-  function formatPrice(cents: number) {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-    }).format(cents / 100)
-  }
+  
 
   const filteredMenus = menus.filter((menu) => {
     if (!searchQuery) return true;
@@ -93,7 +88,7 @@ export function MenuSection({ tenantId }: MenuSectionProps = {}) {
 
         <PermissionGuard permissions={PERMISSIONS.MENU_CREATE}>
           <Button size="sm" onClick={openAdd} className="mb-[1px]">
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus />
             Add Menu Item
           </Button>
         </PermissionGuard>
@@ -163,7 +158,7 @@ export function MenuSection({ tenantId }: MenuSectionProps = {}) {
                   {categoryName(menu.categoryId)}
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums">
-                  {formatPrice(menu.price)}
+                  {formatIdr(menu.price)}
                 </td>
                 <td className="px-4 py-3 text-center">
                   <button
@@ -188,7 +183,7 @@ export function MenuSection({ tenantId }: MenuSectionProps = {}) {
                         variant="ghost"
                         onClick={() => openEdit(menu)}
                       >
-                        <Pencil className="h-4 w-4" />
+                        <Pencil />
                         <span className="sr-only">Edit</span>
                       </Button>
                     </PermissionGuard>
@@ -199,7 +194,7 @@ export function MenuSection({ tenantId }: MenuSectionProps = {}) {
                         className="text-destructive hover:text-destructive"
                         onClick={() => setDeleteTarget(menu.id)}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 />
                         <span className="sr-only">Delete</span>
                       </Button>
                     </PermissionGuard>

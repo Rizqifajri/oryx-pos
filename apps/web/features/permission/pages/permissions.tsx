@@ -1,14 +1,15 @@
 "use client"
 
+import { PageHeader } from "@/components/page-header"
 import { PermissionSection } from "../components/permission-section"
 
 export function PermissionsPage() {
   return (
     <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-xl font-semibold">Permission Management</h1>
-        <p className="text-sm text-muted-foreground">Manage all system permissions and access controls.</p>
-      </div>
+      <PageHeader
+        title="Permissions"
+        description="The system-wide list of actions that roles can be granted."
+      />
       <PermissionSection />
     </div>
   )

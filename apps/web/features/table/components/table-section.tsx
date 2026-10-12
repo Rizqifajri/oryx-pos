@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { PermissionGuard } from "@/components/guards"
 import { PERMISSIONS } from "@/constants/permissions"
 import { cn } from "@/lib/utils"
-import { Plus, Edit, Trash2, Users, QrCode, Receipt, Lock, XCircle, ArrowRightLeft } from "lucide-react"
+import { Plus, Trash2, Users, QrCode, Receipt, Lock, XCircle, ArrowRightLeft, Pencil } from "lucide-react"
 import { toast } from "sonner"
 
 import { useTables, useDeleteTable, useUpdateTableStatus } from "../hooks/use-tables"
@@ -23,6 +23,7 @@ import { formatIdr } from "@/lib/format"
 import { BillDialog } from "./bill-dialog"
 import { MoveMergeDialog } from "./move-merge-dialog"
 import type { ActiveTableSession, Table, TableStatus } from "../types"
+import type { ApiError } from "@/lib/api"
 
 interface TableSectionProps {
   tenantId?: string | null
@@ -111,8 +112,8 @@ export function TableSection({ tenantId }: TableSectionProps = {}) {
     try {
       await deleteTable(table.id)
       toast.success("Table deleted successfully")
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete table")
+    } catch (error) {
+      toast.error((error as ApiError).message || "Failed to delete table")
     }
   }
 
@@ -122,23 +123,21 @@ export function TableSection({ tenantId }: TableSectionProps = {}) {
     try {
       await updateStatus({ id: table.id, status: newStatus })
       toast.success(`Table ${table.name} is now ${STATUS_LABEL[newStatus].toLowerCase()}`)
-    } catch (error: any) {
-      toast.error(error.message || "Failed to update table status")
+    } catch (error) {
+      toast.error((error as ApiError).message || "Failed to update table status")
     }
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-end">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-end gap-3">
         <QrOrderingToggle />
         <PermissionGuard permissions={PERMISSIONS.TABLE_CREATE}>
-          <Button onClick={handleCreate}>
-            <Plus className="mr-2 h-4 w-4" />
+          <Button size="sm" onClick={handleCreate}>
+            <Plus />
             Add Table
           </Button>
         </PermissionGuard>
-        </div>
       </div>
 
       <div className="flex gap-1 border-b">
@@ -197,7 +196,7 @@ export function TableSection({ tenantId }: TableSectionProps = {}) {
 
             {!isLoading && tables.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
+                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                   No tables found.
                 </td>
               </tr>
@@ -246,31 +245,34 @@ export function TableSection({ tenantId }: TableSectionProps = {}) {
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-1">
                     <Button
-                      size="sm"
+                      size="icon-sm"
                       variant="ghost"
                       title="Guest QR code"
                       onClick={() => setQrTableId(table.id)}
                     >
-                      <QrCode className="h-4 w-4" />
+                      <QrCode />
+                      <span className="sr-only">Guest QR code</span>
                     </Button>
                     <PermissionGuard permissions={PERMISSIONS.TABLE_UPDATE}>
                       <Button
-                        size="sm"
+                        size="icon-sm"
                         variant="ghost"
                         onClick={() => handleEdit(table)}
                       >
-                        <Edit className="h-4 w-4" />
+                        <Pencil />
+                        <span className="sr-only">Edit</span>
                       </Button>
                     </PermissionGuard>
                     <PermissionGuard permissions={PERMISSIONS.TABLE_DELETE}>
                       <Button
-                        size="sm"
+                        size="icon-sm"
                         variant="ghost"
                         className="text-destructive hover:text-destructive"
                         onClick={() => handleDelete(table)}
                         disabled={isDeleting}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 />
+                        <span className="sr-only">Delete</span>
                       </Button>
                     </PermissionGuard>
                   </div>

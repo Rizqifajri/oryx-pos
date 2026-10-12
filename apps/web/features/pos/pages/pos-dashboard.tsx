@@ -16,6 +16,7 @@ import { useCreateOrder } from "@/features/order/hooks/use-orders"
 import { useActiveSessions } from "@/features/table/hooks/use-table-sessions"
 import { useTables } from "@/features/table/hooks/use-tables"
 import type { ApiError } from "@/lib/api"
+import type { Menu, MenuBadge } from "@/features/menu/types"
 import { usePosMenus } from "../hooks/use-pos"
 
 type OrderType = "dine_in" | "takeout"
@@ -135,44 +136,19 @@ export function PosDashboard() {
         </div>
 
         <div className="flex-1 overflow-y-auto bg-muted/20 p-4">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] gap-3">
             {loadingMenus &&
-              Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-44 rounded-lg" />)}
+              Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-60 rounded-xl" />)}
             {!loadingMenus &&
-              visibleMenus.map((menu) => {
-                const qty = quantityOf(menu.id)
-                return (
-                  <button
-                    key={menu.id}
-                    type="button"
-                    onClick={() => addItem({ menuId: menu.id, name: menu.name, price: menu.price })}
-                    className={cn(
-                      "relative flex flex-col overflow-hidden rounded-lg border bg-card text-left transition hover:shadow-md",
-                      qty > 0 && "ring-2 ring-foreground",
-                    )}
-                  >
-                    <div className="aspect-video bg-muted">
-                      {menu.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={menu.imageUrl} alt="" className="size-full object-cover" />
-                      ) : (
-                        <div className="grid size-full place-items-center text-muted-foreground">
-                          <ImageIcon className="size-5" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-3">
-                      <p className="line-clamp-1 text-sm font-medium">{menu.name}</p>
-                      <p className="text-sm text-muted-foreground tabular-nums">{formatIdr(menu.price)}</p>
-                    </div>
-                    {qty > 0 && (
-                      <span className="absolute top-2 right-2 grid size-6 place-items-center rounded-full bg-foreground text-xs font-semibold text-background tabular-nums">
-                        {qty}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
+              visibleMenus.map((menu) => (
+                <MenuCard
+                  key={menu.id}
+                  menu={menu}
+                  quantity={quantityOf(menu.id)}
+                  onAdd={() => addItem({ menuId: menu.id, name: menu.name, price: menu.price })}
+                  onSetQuantity={(q) => updateQuantity(menu.id, q)}
+                />
+              ))}
             {!loadingMenus && visibleMenus.length === 0 && (
               <p className="col-span-full py-12 text-center text-sm text-muted-foreground">No menu items found.</p>
             )}
@@ -340,6 +316,103 @@ export function PosDashboard() {
           </Button>
         </div>
       </aside>
+    </div>
+  )
+}
+
+const BADGE_LABEL: Record<MenuBadge, string> = {
+  chef_pick: "Chef's pick",
+  best_seller: "Best seller",
+  new: "New",
+  spicy: "Spicy",
+}
+
+/**
+ * Tapping the card adds one. Once it is in the order the footer turns into a
+ * stepper, so the cashier can correct a count without leaving the grid.
+ */
+function MenuCard({
+  menu,
+  quantity,
+  onAdd,
+  onSetQuantity,
+}: {
+  menu: Menu
+  quantity: number
+  onAdd: () => void
+  onSetQuantity: (quantity: number) => void
+}) {
+  const selected = quantity > 0
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm transition-shadow hover:shadow-md",
+        selected && "border-primary ring-1 ring-primary",
+      )}
+    >
+      <button
+        type="button"
+        onClick={onAdd}
+        aria-label={`Add ${menu.name}, ${formatIdr(menu.price)}`}
+        className="flex flex-1 flex-col text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+      >
+        <div className="relative aspect-[4/3] w-full bg-muted">
+          {menu.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={menu.imageUrl} alt="" loading="lazy" className="size-full object-cover" />
+          ) : (
+            <div className="grid size-full place-items-center text-muted-foreground">
+              <ImageIcon className="size-6" />
+            </div>
+          )}
+          {menu.badge && (
+            <span className="absolute top-2 left-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-medium shadow-sm backdrop-blur-sm">
+              {BADGE_LABEL[menu.badge]}
+            </span>
+          )}
+          {selected && (
+            <span className="absolute top-2 right-2 grid size-7 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground tabular-nums shadow-sm">
+              {quantity}
+            </span>
+          )}
+        </div>
+        <div className="flex flex-1 flex-col gap-1 p-3">
+          <p className="line-clamp-2 text-sm leading-snug font-medium">{menu.name}</p>
+          <p className="mt-auto text-sm font-semibold tabular-nums">{formatIdr(menu.price)}</p>
+        </div>
+      </button>
+
+      <div className="border-t p-2">
+        {selected ? (
+          <div className="flex items-center justify-between">
+            <Button
+              size="icon-sm"
+              variant="outline"
+              aria-label={`Remove one ${menu.name}`}
+              onClick={() => onSetQuantity(quantity - 1)}
+            >
+              <Minus />
+            </Button>
+            <span className="text-sm font-semibold tabular-nums" aria-live="polite">
+              {quantity} in order
+            </span>
+            <Button
+              size="icon-sm"
+              variant="outline"
+              aria-label={`Add one ${menu.name}`}
+              onClick={() => onSetQuantity(quantity + 1)}
+            >
+              <Plus />
+            </Button>
+          </div>
+        ) : (
+          <Button size="sm" variant="ghost" className="w-full" onClick={onAdd} tabIndex={-1}>
+            <Plus />
+            Add
+          </Button>
+        )}
+      </div>
     </div>
   )
 }
