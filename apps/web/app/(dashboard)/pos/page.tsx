@@ -7,7 +7,8 @@ import { PosDashboard } from "@/features/pos/pages/pos-dashboard"
 
 export default function PosPage() {
   return (
-    <RequirePermission permissions={PERMISSIONS.ORDER_CREATE}>
+    <RequirePermission permissions={[PERMISSIONS.ORDER_CREATE, PERMISSIONS.ORDER_MANAGE]}
+      requireAll={false}>
       <CartProvider>
         <PosDashboard />
       </CartProvider>

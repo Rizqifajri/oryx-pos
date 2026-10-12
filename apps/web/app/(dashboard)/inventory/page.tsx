@@ -4,7 +4,7 @@ import { InventoryPage } from "@/features/inventory/pages/inventory"
 
 export default function Page() {
   return (
-    <RequirePermission permissions={PERMISSIONS.MENU_MANAGE}>
+    <RequirePermission permissions={PERMISSIONS.MENU_LIST}>
       <InventoryPage />
     </RequirePermission>
   )

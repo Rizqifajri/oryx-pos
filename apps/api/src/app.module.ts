@@ -4,6 +4,7 @@ import { AppController } from "./app.controller";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "./common/guards/permissions.guard";
 import { DatabaseModule } from "./database/database.module";
+import { RepositoriesModule } from "./database/repositories.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { CategoryModule } from "./modules/category/category.module";
 import { CustomerModule } from "./modules/customer/customer.module";
@@ -23,6 +24,7 @@ import { UserModule } from "./modules/user/user.module";
 @Module({
   imports: [
     DatabaseModule,
+    RepositoriesModule,
     RealtimeModule,
     // Same order the Express app mounted its routers in.
     AuthModule,

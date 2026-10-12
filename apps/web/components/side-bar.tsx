@@ -58,6 +58,8 @@ interface NavGroup {
   items: NavItem[]
 }
 
+// Each item lists what the page's own API calls require, so a role that can
+// open the page always sees the link, and never the other way round.
 const navGroups: NavGroup[] = [
   {
     label: "Overview",
@@ -70,30 +72,30 @@ const navGroups: NavGroup[] = [
     scopes: ["TENANT"],
     items: [
       // Ordered along a service: take orders → run the floor → cook → get paid.
-      { title: "POS Cashier", href: "/pos", icon: Monitor, permissions: [PERMISSIONS.ORDER_MANAGE] },
-      { title: "Tables", href: "/tables", icon: LayoutGrid, permissions: [PERMISSIONS.TABLE_MANAGE] },
-      { title: "Orders", href: "/order", icon: ShoppingCart, permissions: [PERMISSIONS.ORDER_MANAGE] },
+      { title: "POS Cashier", href: "/pos", icon: Monitor, permissions: [PERMISSIONS.ORDER_CREATE, PERMISSIONS.ORDER_MANAGE] },
+      { title: "Tables", href: "/tables", icon: LayoutGrid, permissions: [PERMISSIONS.TABLE_LIST] },
+      { title: "Orders", href: "/order", icon: ShoppingCart, permissions: [PERMISSIONS.ORDER_LIST] },
       { title: "Payments", href: "/payments", icon: Wallet, permissions: [PERMISSIONS.TRANSACTION_LIST] },
-      { title: "Menu", href: "/menu", icon: BookOpen, permissions: [PERMISSIONS.MENU_MANAGE] },
-      { title: "Inventory", href: "/inventory", icon: Package, permissions: [PERMISSIONS.MENU_MANAGE] },
+      { title: "Menu", href: "/menu", icon: BookOpen, permissions: [PERMISSIONS.MENU_LIST] },
+      { title: "Inventory", href: "/inventory", icon: Package, permissions: [PERMISSIONS.MENU_LIST] },
     ],
   },
   {
     label: "Team Management",
     scopes: ["TENANT"],
     items: [
-      { title: "Users", href: "/users", icon: Users, permissions: [PERMISSIONS.USER_MANAGE] },
-      { title: "Roles", href: "/roles", icon: ShieldCheck, permissions: [PERMISSIONS.ROLE_MANAGE] },
+      { title: "Users", href: "/users", icon: Users, permissions: [PERMISSIONS.USER_LIST] },
+      { title: "Roles", href: "/roles", icon: ShieldCheck, permissions: [PERMISSIONS.ROLE_LIST] },
     ],
   },
   {
     label: "Administration",
     scopes: ["GLOBAL"],
     items: [
-      { title: "Users", href: "/users", icon: Users, permissions: [PERMISSIONS.USER_MANAGE] },
-      { title: "Roles", href: "/roles", icon: ShieldCheck, permissions: [PERMISSIONS.ROLE_MANAGE] },
-      { title: "Permissions", href: "/permissions", icon: Lock, permissions: [PERMISSIONS.PERMISSION_MANAGE] },
-      { title: "Tenants", href: "/tenants", icon: Building2, permissions: [PERMISSIONS.TENANT_MANAGE] },
+      { title: "Users", href: "/users", icon: Users, permissions: [PERMISSIONS.USER_LIST] },
+      { title: "Roles", href: "/roles", icon: ShieldCheck, permissions: [PERMISSIONS.ROLE_LIST] },
+      { title: "Permissions", href: "/permissions", icon: Lock, permissions: [PERMISSIONS.PERMISSION_LIST] },
+      { title: "Tenants", href: "/tenants", icon: Building2, permissions: [PERMISSIONS.TENANT_LIST] },
     ],
   },
 ]
@@ -107,7 +109,7 @@ export function AppSidebar() {
   const [userScope, setUserScope] = useState<"GLOBAL" | "TENANT" | null>(null)
   const [isMounted, setIsMounted] = useState(false)
   const attention = useOrdersAttentionCount(
-    userScope === "TENANT" && userPermissions.includes(PERMISSIONS.ORDER_MANAGE),
+    userScope === "TENANT" && userPermissions.includes(PERMISSIONS.ORDER_LIST),
   )
 
   // Load user scope from localStorage on mount for initial render (client-side only)

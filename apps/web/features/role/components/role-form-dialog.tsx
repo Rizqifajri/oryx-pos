@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
+import { Search } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,76 +23,85 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useUserRole } from "@/features/auth/hooks/use-permissions"
-import { PERMISSIONS, ROLES } from "@/constants/permissions"
+import { ROLES } from "@/constants/permissions"
 import { usePermissions } from "@/features/permission/hooks/use-permissions"
 
 import { useCreateRole, useUpdateRole } from "../hooks/use-roles"
 import type { RoleRecord } from "../types"
 
-// ─── Static permission groups from local constants (no API call needed) ───────
+// ─── Labels ───────────────────────────────────────────────────────────────────
+// Permissions are named `resource:action`. Groups are built from whatever the
+// API returns for this user, so a checkbox can never refer to a permission the
+// user is not allowed to assign — the old hard-coded list silently dropped them.
 
-const PERMISSION_GROUPS: { label: string; perms: string[] }[] = [
-  {
-    label: "Tenant (Global)",
-    perms: [PERMISSIONS.TENANT_LIST, PERMISSIONS.TENANT_VIEW, PERMISSIONS.TENANT_CREATE, PERMISSIONS.TENANT_UPDATE, PERMISSIONS.TENANT_DELETE],
-  },
-  {
-    label: "Tenant (Scoped)",
-    perms: [PERMISSIONS.TENANT_VIEW, PERMISSIONS.TENANT_MANAGE],
-  },
-  {
-    label: "Users (Global)",
-    perms: [PERMISSIONS.USER_LIST, PERMISSIONS.USER_VIEW, PERMISSIONS.USER_CREATE, PERMISSIONS.USER_UPDATE, PERMISSIONS.USER_DELETE],
-  },
-  {
-    label: "Users (Scoped)",
-    perms: [PERMISSIONS.USER_VIEW, PERMISSIONS.USER_MANAGE],
-  },
-  {
-    label: "Roles (Global)",
-    perms: [PERMISSIONS.ROLE_LIST, PERMISSIONS.ROLE_VIEW, PERMISSIONS.ROLE_CREATE, PERMISSIONS.ROLE_UPDATE, PERMISSIONS.ROLE_DELETE],
-  },
-  {
-    label: "Roles (Scoped)",
-    perms: [PERMISSIONS.ROLE_VIEW, PERMISSIONS.ROLE_MANAGE],
-  },
-  {
-    label: "Permissions (Global)",
-    perms: [PERMISSIONS.PERMISSION_LIST, PERMISSIONS.PERMISSION_VIEW, PERMISSIONS.PERMISSION_CREATE, PERMISSIONS.PERMISSION_UPDATE, PERMISSIONS.PERMISSION_DELETE],
-  },
-  {
-    label: "Permissions (Scoped)",
-    perms: [PERMISSIONS.PERMISSION_LIST, PERMISSIONS.PERMISSION_VIEW],
-  },
-  {
-    label: "Category",
-    perms: [PERMISSIONS.CATEGORY_LIST, PERMISSIONS.CATEGORY_VIEW, PERMISSIONS.CATEGORY_CREATE, PERMISSIONS.CATEGORY_UPDATE, PERMISSIONS.CATEGORY_DELETE, PERMISSIONS.CATEGORY_MANAGE],
-  },
-  {
-    label: "Menu",
-    perms: [PERMISSIONS.MENU_LIST, PERMISSIONS.MENU_VIEW, PERMISSIONS.MENU_CREATE, PERMISSIONS.MENU_UPDATE, PERMISSIONS.MENU_DELETE, PERMISSIONS.MENU_MANAGE],
-  },
-  {
-    label: "Table",
-    perms: [PERMISSIONS.TABLE_LIST, PERMISSIONS.TABLE_VIEW, PERMISSIONS.TABLE_CREATE, PERMISSIONS.TABLE_UPDATE, PERMISSIONS.TABLE_DELETE, PERMISSIONS.TABLE_MANAGE],
-  },
-  {
-    label: "Order",
-    perms: [PERMISSIONS.ORDER_LIST, PERMISSIONS.ORDER_VIEW, PERMISSIONS.ORDER_CREATE, PERMISSIONS.ORDER_UPDATE, PERMISSIONS.ORDER_DELETE, PERMISSIONS.ORDER_MANAGE],
-  },
-  {
-    label: "Customer",
-    perms: [PERMISSIONS.CUSTOMER_LIST, PERMISSIONS.CUSTOMER_VIEW, PERMISSIONS.CUSTOMER_CREATE, PERMISSIONS.CUSTOMER_UPDATE, PERMISSIONS.CUSTOMER_DELETE, PERMISSIONS.CUSTOMER_MANAGE],
-  },
-  {
-    label: "Transaction (Payment)",
-    perms: [PERMISSIONS.TRANSACTION_LIST, PERMISSIONS.TRANSACTION_VIEW, PERMISSIONS.TRANSACTION_CREATE, PERMISSIONS.TRANSACTION_UPDATE, PERMISSIONS.TRANSACTION_DELETE, PERMISSIONS.TRANSACTION_MANAGE],
-  },
-]
+const RESOURCE_LABELS: Record<string, string> = {
+  tenant: "Restaurant",
+  user: "Users",
+  role: "Roles",
+  permission: "Permissions",
+  category: "Menu categories",
+  menu: "Menu & inventory",
+  table: "Tables",
+  order: "Orders",
+  customer: "Customers",
+  transaction: "Payments",
+}
 
-function actionLabel(perm: string) {
-  const action = perm.split(":")[1] ?? perm
-  return action.charAt(0).toUpperCase() + action.slice(1)
+// Read actions first, then writes — the order people think in.
+const ACTION_ORDER = ["list", "view", "create", "update", "delete", "manage-own", "manage"]
+
+const ACTION_LABELS: Record<string, { label: string; hint: string }> = {
+  list: { label: "View list", hint: "Open the page and see all records" },
+  view: { label: "View details", hint: "Open a single record" },
+  create: { label: "Create", hint: "Add new records" },
+  update: { label: "Edit", hint: "Change existing records" },
+  delete: { label: "Delete", hint: "Remove records" },
+  manage: { label: "Full write access", hint: "Create, edit and delete in one" },
+  "manage-own": { label: "Manage own settings", hint: "Edit this restaurant's own settings" },
+}
+
+function splitPermission(name: string) {
+  const i = name.indexOf(":")
+  return i === -1
+    ? { resource: name, action: name }
+    : { resource: name.slice(0, i), action: name.slice(i + 1) }
+}
+
+function titleCase(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+type PermItem = { id: string; name: string; action: string; label: string; hint: string }
+type PermGroup = { resource: string; label: string; items: PermItem[] }
+
+function groupPermissions(perms: { id: string; name: string }[]): PermGroup[] {
+  const byResource = new Map<string, PermItem[]>()
+
+  for (const p of perms) {
+    const { resource, action } = splitPermission(p.name)
+    const meta = ACTION_LABELS[action]
+    const list = byResource.get(resource) ?? []
+    list.push({
+      id: p.id,
+      name: p.name,
+      action,
+      label: meta?.label ?? titleCase(action),
+      hint: meta?.hint ?? "",
+    })
+    byResource.set(resource, list)
+  }
+
+  return [...byResource.entries()]
+    .map(([resource, items]) => ({
+      resource,
+      label: RESOURCE_LABELS[resource] ?? titleCase(resource),
+      items: items.sort((a, b) => {
+        const ai = ACTION_ORDER.indexOf(a.action)
+        const bi = ACTION_ORDER.indexOf(b.action)
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+      }),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label))
 }
 
 // ─── Form schema ──────────────────────────────────────────────────────────────
@@ -99,6 +109,7 @@ function actionLabel(perm: string) {
 const roleFormSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   scope: z.enum(["TENANT", "GLOBAL"]),
+  // Permission IDs, so what is ticked is exactly what gets saved.
   permissions: z.array(z.string()).min(1, "Select at least one permission"),
 })
 type RoleFormValues = z.infer<typeof roleFormSchema>
@@ -119,21 +130,33 @@ export function RoleFormDialog({ open, onOpenChange, editTarget, filterTenantId 
   const isPending = creating || updating
   const canSetGlobal = userRole === ROLES.SUPER_ADMIN
 
-  // Create a map of permission name → permission ID
-  const permissionMap = useMemo(() => {
-    const map = new Map<string, string>()
-    permissions.forEach((p) => map.set(p.name, p.id))
-    return map
-  }, [permissions])
+  const [query, setQuery] = useState("")
 
-  // Filter permission groups based on user role
+  const groups = useMemo(() => groupPermissions(permissions), [permissions])
+
+  // Permissions this role already holds that the current user cannot see (a
+  // super-admin may have granted global-only ones). They stay on the role
+  // instead of being wiped by an edit.
+  const hiddenIds = useMemo(() => {
+    if (!editTarget?.permissions) return []
+    const visible = new Set(permissions.map((p) => p.id))
+    return editTarget.permissions.filter((p) => !visible.has(p.id)).map((p) => p.id)
+  }, [editTarget, permissions])
+
   const visibleGroups = useMemo(() => {
-    if (userRole === ROLES.SUPER_ADMIN) {
-      return PERMISSION_GROUPS // Show all groups for super admin
-    }
-    // For tenant users, hide "(Global)" groups
-    return PERMISSION_GROUPS.filter((group) => !group.label.includes("(Global)"))
-  }, [userRole])
+    const q = query.trim().toLowerCase()
+    if (!q) return groups
+    return groups
+      .map((g) => ({
+        ...g,
+        items: g.label.toLowerCase().includes(q)
+          ? g.items
+          : g.items.filter(
+              (i) => i.name.toLowerCase().includes(q) || i.label.toLowerCase().includes(q),
+            ),
+      }))
+      .filter((g) => g.items.length > 0)
+  }, [groups, query])
 
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } =
     useForm<RoleFormValues>({
@@ -141,40 +164,37 @@ export function RoleFormDialog({ open, onOpenChange, editTarget, filterTenantId 
       defaultValues: { name: "", scope: "TENANT", permissions: [] },
     })
 
-  const selected = watch("permissions")
+  const selected = watch("permissions") ?? []
 
   useEffect(() => {
+    setQuery("")
     reset({
       name: editTarget?.name ?? "",
       scope: editTarget?.scope ?? "TENANT",
-      permissions: editTarget?.permissions?.map((p) => p.name) ?? [],
+      permissions: editTarget?.permissions?.map((p) => p.id) ?? [],
     })
   }, [editTarget, open, reset])
 
-  function toggle(perm: string) {
-    const cur = selected ?? []
-    setValue(
-      "permissions",
-      cur.includes(perm) ? cur.filter((p) => p !== perm) : [...cur, perm],
-      { shouldValidate: true },
-    )
+  function setSelected(ids: string[]) {
+    setValue("permissions", ids, { shouldValidate: true })
   }
 
-  function toggleGroup(perms: string[]) {
-    const cur = selected ?? []
-    const allOn = perms.every((p) => cur.includes(p))
-    setValue(
-      "permissions",
-      allOn ? cur.filter((p) => !perms.includes(p)) : Array.from(new Set([...cur, ...perms])),
-      { shouldValidate: true },
+  function toggle(id: string) {
+    setSelected(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id])
+  }
+
+  function toggleGroup(items: PermItem[]) {
+    const ids = items.map((i) => i.id)
+    const allOn = ids.every((id) => selected.includes(id))
+    setSelected(
+      allOn
+        ? selected.filter((id) => !ids.includes(id))
+        : Array.from(new Set([...selected, ...ids])),
     )
   }
 
   function onSubmit(values: RoleFormValues) {
-    // Convert permission names to permission IDs
-    const permissionIds = values.permissions
-      .map((name) => permissionMap.get(name))
-      .filter((id): id is string => id !== undefined)
+    const permissionIds = Array.from(new Set([...values.permissions, ...hiddenIds]))
 
     if (isEdit) {
       update(
@@ -191,7 +211,7 @@ export function RoleFormDialog({ open, onOpenChange, editTarget, filterTenantId 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="sm:max-w-lg">
+      <DialogContent showCloseButton={false} className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Role" : "Add Role"}</DialogTitle>
         </DialogHeader>
@@ -225,49 +245,93 @@ export function RoleFormDialog({ open, onOpenChange, editTarget, filterTenantId 
               )}
 
               <Field data-invalid={!!errors.permissions}>
-                <FieldLabel>
-                  Permissions
-                  {isEdit && (
-                    <span className="ml-2 text-xs font-normal text-muted-foreground">
-                      (re-select to update)
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <FieldLabel>What this role can do</FieldLabel>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-muted-foreground">
+                      {selected.length} selected
                     </span>
-                  )}
-                </FieldLabel>
-                <div className="max-h-60 overflow-y-auto rounded-lg border p-3 space-y-4">
+                    {selected.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelected([])}
+                        className="font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                      >
+                        Clear all
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search a page or action, e.g. menu"
+                    className="pl-8"
+                    aria-label="Search permissions"
+                  />
+                </div>
+
+                <div className="max-h-[22rem] divide-y overflow-y-auto rounded-lg border">
                   {loadingPermissions ? (
-                    <div className="py-8 text-center text-sm text-muted-foreground">
-                      Loading permissions...
+                    <div className="py-10 text-center text-sm text-muted-foreground">
+                      Loading permissions…
+                    </div>
+                  ) : visibleGroups.length === 0 ? (
+                    <div className="py-10 text-center text-sm text-muted-foreground">
+                      No permission matches “{query}”.
                     </div>
                   ) : (
                     visibleGroups.map((group) => {
-                      const allOn = group.perms.every((p) => selected?.includes(p))
+                      const ids = group.items.map((i) => i.id)
+                      const on = ids.filter((id) => selected.includes(id)).length
+                      const allOn = on === ids.length
                       return (
-                        <div key={group.label}>
-                          <div className="flex items-center gap-2 mb-1.5">
+                        <div key={group.resource} className="p-3">
+                          <div className="mb-2 flex items-center gap-2">
                             <input
                               type="checkbox"
-                              id={`grp-${group.label}`}
+                              id={`grp-${group.resource}`}
                               checked={allOn}
-                              onChange={() => toggleGroup(group.perms)}
-                              className="size-3.5 rounded border-input"
+                              ref={(el) => {
+                                if (el) el.indeterminate = on > 0 && !allOn
+                              }}
+                              onChange={() => toggleGroup(group.items)}
+                              className="size-4 rounded border-input"
                             />
                             <label
-                              htmlFor={`grp-${group.label}`}
-                              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground cursor-pointer"
+                              htmlFor={`grp-${group.resource}`}
+                              className="cursor-pointer text-sm font-semibold"
                             >
                               {group.label}
                             </label>
+                            <span className="text-xs text-muted-foreground">
+                              {on}/{ids.length}
+                            </span>
                           </div>
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 pl-5">
-                            {group.perms.map((perm) => (
-                              <label key={perm} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                          <div className="grid gap-1.5 pl-6 sm:grid-cols-2">
+                            {group.items.map((item) => (
+                              <label
+                                key={item.id}
+                                title={item.name}
+                                className="flex cursor-pointer items-start gap-2 rounded-md px-1.5 py-1 hover:bg-muted/50"
+                              >
                                 <input
                                   type="checkbox"
-                                  checked={selected?.includes(perm) ?? false}
-                                  onChange={() => toggle(perm)}
-                                  className="size-3.5 rounded border-input"
+                                  checked={selected.includes(item.id)}
+                                  onChange={() => toggle(item.id)}
+                                  className="mt-0.5 size-4 rounded border-input"
                                 />
-                                {actionLabel(perm)}
+                                <span className="leading-tight">
+                                  <span className="block text-sm">{item.label}</span>
+                                  {item.hint && (
+                                    <span className="block text-xs text-muted-foreground">
+                                      {item.hint}
+                                    </span>
+                                  )}
+                                </span>
                               </label>
                             ))}
                           </div>
@@ -276,6 +340,13 @@ export function RoleFormDialog({ open, onOpenChange, editTarget, filterTenantId 
                     })
                   )}
                 </div>
+
+                <p className="text-xs text-muted-foreground">
+                  “View list” is what lets someone open the page at all. Without it the
+                  menu entry stays hidden.
+                  {hiddenIds.length > 0 &&
+                    ` ${hiddenIds.length} system permission(s) on this role are not shown and will be kept.`}
+                </p>
                 <FieldError errors={[errors.permissions]} />
               </Field>
             </FieldGroup>

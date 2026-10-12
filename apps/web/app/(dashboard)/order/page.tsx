@@ -4,7 +4,7 @@ import { OrdersPage } from "@/features/order/pages/orders"
 
 export default function Page() {
   return (
-    <RequirePermission permissions={PERMISSIONS.ORDER_MANAGE}>
+    <RequirePermission permissions={PERMISSIONS.ORDER_LIST}>
       <OrdersPage />
     </RequirePermission>
   )

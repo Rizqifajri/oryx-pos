@@ -4,7 +4,7 @@ import TablesPage from "@/features/table/pages/tables"
 
 export default function Page() {
   return (
-    <RequirePermission permissions={PERMISSIONS.TABLE_MANAGE}>
+    <RequirePermission permissions={PERMISSIONS.TABLE_LIST}>
       <TablesPage />
     </RequirePermission>
   )

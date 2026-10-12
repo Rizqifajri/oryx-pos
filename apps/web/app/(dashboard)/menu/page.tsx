@@ -4,7 +4,7 @@ import { MenuPage } from "@/features/menu/pages/menu"
 
 export default function Page() {
   return (
-    <RequirePermission permissions={PERMISSIONS.MENU_MANAGE}>
+    <RequirePermission permissions={PERMISSIONS.MENU_LIST}>
       <MenuPage />
     </RequirePermission>
   )
