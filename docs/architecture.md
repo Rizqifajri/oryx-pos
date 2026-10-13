@@ -31,7 +31,7 @@ Errors are thrown as `AppError(message, status)` and turned into `{ success: fal
 
 ## Authentication
 
-1. `POST /auth/login` returns an access token (default lifetime 24h) and a refresh token (7d). The refresh token is stored bcrypt-hashed, and each refresh rotates it.
+1. `POST /auth/login` returns an access token (default lifetime 24h) and a refresh token (7d). The refresh token is stored as a SHA-256 hash, and each refresh rotates it, so an older refresh token stops working.
 2. The web app keeps both tokens in `localStorage`, and copies the access token into a cookie so `proxy.ts` (Next.js middleware) can protect dashboard routes.
 3. On a 401 from any request other than login, register or refresh, `lib/api.ts` refreshes once and retries; if that fails it clears the session and goes to `/login`. A 401 from login itself is returned to the form as "wrong email or password".
 

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { toast } from "sonner"
 import { Pencil, Plus, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -157,7 +158,7 @@ export function RoleSection({ tenantId }: RoleSectionProps = {}) {
         isPending={deleting}
         onConfirm={() => {
           if (deleteTarget) {
-            deleteRole(deleteTarget, { onSuccess: () => setDeleteTarget(null) })
+            deleteRole(deleteTarget, { onSuccess: () => setDeleteTarget(null), onError: (e) => toast.error(e.message) })
           }
         }}
       />

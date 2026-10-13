@@ -25,6 +25,21 @@ export interface MenuFilters {
   tenantId?: string
   categoryId?: string
   isAvailable?: boolean
+  search?: string
+  page?: number
+  limit?: number
+}
+
+export interface PaginationMeta {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+}
+
+export interface PaginatedMenus {
+  items: Menu[]
+  pagination: PaginationMeta
 }
 
 export interface CreateMenuPayload {

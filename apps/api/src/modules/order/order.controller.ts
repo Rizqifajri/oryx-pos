@@ -34,11 +34,15 @@ export class OrderController {
     @Query("tenantId") tenantId?: string,
     @Query("status") status?: string,
     @Query("tableId") tableId?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
   ) {
     const filters: {
       tenantId?: string;
       status?: OrderStatus;
       tableId?: string;
+      page?: number;
+      limit?: number;
     } = {};
 
     if (tenantId && typeof tenantId === "string") {
@@ -56,6 +60,16 @@ export class OrderController {
 
     if (tableId && typeof tableId === "string") {
       filters.tableId = tableId;
+    }
+
+    if (page !== undefined || limit !== undefined) {
+      const parsedPage = page ? parseInt(page, 10) : 1;
+      const parsedLimit = limit ? parseInt(limit, 10) : 10;
+      filters.page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+      filters.limit =
+        Number.isFinite(parsedLimit) && parsedLimit > 0
+          ? Math.min(parsedLimit, 100)
+          : 10;
     }
 
     const data = await this.orderService.listOrders(user, filters);

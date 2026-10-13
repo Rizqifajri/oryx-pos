@@ -37,22 +37,37 @@ export class OrderService {
 
   async listOrders(
     ctx: UserContext,
-    filters?: { tenantId?: string; status?: OrderStatus; tableId?: string },
+    filters?: {
+      tenantId?: string;
+      status?: OrderStatus;
+      tableId?: string;
+      page?: number;
+      limit?: number;
+    },
   ) {
     // Permission check now handled by route middleware
+    let tenantIdToUse: string | undefined;
 
     // For TENANT scope: always use their tenant (ignore any provided tenantId)
     if (ctx.scope === "TENANT") {
       if (!ctx.tenantId) throw new AppError("Tenant context required", 400);
-      return await this.orderRepo.findOrdersByTenantId(ctx.tenantId, filters);
+      tenantIdToUse = ctx.tenantId;
+    } else if (filters?.tenantId) {
+      tenantIdToUse = filters.tenantId;
     }
 
-    // For GLOBAL scope: use filter tenantId if provided
-    if (filters?.tenantId) {
-      return await this.orderRepo.findOrdersByTenantId(
-        filters.tenantId,
-        filters,
-      );
+    if (filters?.page !== undefined && filters?.limit !== undefined) {
+      return await this.orderRepo.findOrdersPaginated({
+        tenantId: tenantIdToUse,
+        status: filters.status,
+        tableId: filters.tableId,
+        page: filters.page,
+        limit: filters.limit,
+      });
+    }
+
+    if (tenantIdToUse) {
+      return await this.orderRepo.findOrdersByTenantId(tenantIdToUse, filters);
     }
 
     return await this.orderRepo.findAllOrders();

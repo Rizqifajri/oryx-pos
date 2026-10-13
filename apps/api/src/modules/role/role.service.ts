@@ -216,6 +216,15 @@ export class RoleService {
       assertTenantMatch(ctx, role.tenantId);
     }
 
+    const holders = await this.roleRepo.countUsersWithRole(id);
+    if (holders > 0) {
+      throw new AppError(
+        `${holders} user(s) still have this role. Give them another role first.`,
+        409,
+        { code: "ROLE_IN_USE" },
+      );
+    }
+
     return await this.roleRepo.deleteRole(id);
   }
 }

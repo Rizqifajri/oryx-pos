@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { toast } from "sonner"
 import { Pencil, Plus, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -171,7 +172,7 @@ export function UserSection({ tenantId }: UserSectionProps = {}) {
         isPending={deleting}
         onConfirm={() => {
           if (deleteTarget) {
-            deleteUser(deleteTarget, { onSuccess: () => setDeleteTarget(null) })
+            deleteUser(deleteTarget, { onSuccess: () => setDeleteTarget(null), onError: (e) => toast.error(e.message) })
           }
         }}
       />

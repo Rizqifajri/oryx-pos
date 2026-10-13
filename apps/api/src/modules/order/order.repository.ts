@@ -7,7 +7,7 @@ import {
   orders,
   tables,
 } from "@dio-sys-be/db/schema";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, count, desc, eq, inArray } from "drizzle-orm";
 import { DRIZZLE } from "../../database/database.module";
 import type { OrderItemInput, OrderStatus } from "./order.schema";
 
@@ -88,7 +88,8 @@ export class OrderRepository {
       })
       .from(orders)
       .leftJoin(customers, eq(orders.customerId, customers.id))
-      .leftJoin(tables, eq(orders.tableId, tables.id));
+      .leftJoin(tables, eq(orders.tableId, tables.id))
+      .orderBy(desc(orders.createdAt));
     return this.attachItems(orderList as any);
   }
 
@@ -124,8 +125,76 @@ export class OrderRepository {
       .from(orders)
       .leftJoin(customers, eq(orders.customerId, customers.id))
       .leftJoin(tables, eq(orders.tableId, tables.id))
-      .where(and(...conditions));
+      .where(and(...conditions))
+      .orderBy(desc(orders.createdAt));
     return this.attachItems(orderList as any);
+  }
+
+  async findOrdersPaginated(filters: {
+    tenantId?: string;
+    status?: OrderStatus;
+    tableId?: string;
+    page: number;
+    limit: number;
+  }) {
+    const conditions = [];
+
+    if (filters.tenantId) {
+      conditions.push(eq(orders.tenantId, filters.tenantId));
+    }
+    if (filters.status) {
+      conditions.push(eq(orders.status, filters.status));
+    }
+    if (filters.tableId) {
+      conditions.push(eq(orders.tableId, filters.tableId));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const offset = (filters.page - 1) * filters.limit;
+
+    const baseQuery = this.db
+      .select({
+        id: orders.id,
+        tenantId: orders.tenantId,
+        tableId: orders.tableId,
+        customerId: orders.customerId,
+        status: orders.status,
+        totalPrice: orders.totalPrice,
+        paymentMethod: orders.paymentMethod,
+        sessionId: orders.sessionId,
+        note: orders.note,
+        submittedAt: orders.submittedAt,
+        createdAt: orders.createdAt,
+        customerName: customers.name,
+        tableName: tables.name,
+      })
+      .from(orders)
+      .leftJoin(customers, eq(orders.customerId, customers.id))
+      .leftJoin(tables, eq(orders.tableId, tables.id));
+
+    const [orderList, [totalRow]] = await Promise.all([
+      (whereClause ? baseQuery.where(whereClause) : baseQuery)
+        .orderBy(desc(orders.createdAt))
+        .limit(filters.limit)
+        .offset(offset),
+      whereClause
+        ? this.db.select({ total: count() }).from(orders).where(whereClause)
+        : this.db.select({ total: count() }).from(orders),
+    ]);
+
+    const total = Number(totalRow?.total ?? 0);
+    const totalPages = Math.ceil(total / filters.limit) || 1;
+    const items = await this.attachItems(orderList as any);
+
+    return {
+      items,
+      pagination: {
+        page: filters.page,
+        limit: filters.limit,
+        total,
+        totalPages,
+      },
+    };
   }
 
   async findOrderById(id: string) {

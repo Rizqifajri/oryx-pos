@@ -1,8 +1,9 @@
 "use client"
 
 import { useState } from "react"
+import { toast } from "sonner"
 // Tambahkan import ImageIcon untuk fallback gambar kosong
-import { Pencil, Plus, Trash2, Image as ImageIcon } from "lucide-react"
+import { ChevronLeft, ChevronRight, Image as ImageIcon, Pencil, Plus, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -12,7 +13,7 @@ import { PermissionGuard } from "@/components/guards"
 import { PERMISSIONS } from "@/constants/permissions"
 import { cn } from "@/lib/utils"
 
-import { useMenus, useDeleteMenu, useToggleAvailability } from "../hooks/use-menus"
+import { usePaginatedMenus, useDeleteMenu, useToggleAvailability } from "../hooks/use-menus"
 import { useCategories } from "../hooks/use-categories"
 import { MenuFormDialog } from "./menu-form-dialog"
 import type { Menu } from "../types"
@@ -22,18 +23,27 @@ interface MenuSectionProps {
   tenantId?: string | null
 }
 
+const PAGE_SIZE_OPTIONS = [5, 10, 20, 50]
+
 export function MenuSection({ tenantId }: MenuSectionProps = {}) {
   const [searchQuery, setSearchQuery] = useState("")
   const [filterCategory, setFilterCategory] = useState("")
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
   // Build filters object conditionally
   const menuFilters = {
     ...(tenantId ? { tenantId } : {}),
     ...(filterCategory ? { categoryId: filterCategory } : {}),
+    ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
+    page,
+    limit: pageSize,
   }
-  const hasFilters = Object.keys(menuFilters).length > 0
 
-  const { data: menus = [], isLoading } = useMenus(hasFilters ? menuFilters : undefined)
+  const { data, isLoading } = usePaginatedMenus(menuFilters)
+  const menus = data?.items ?? []
+  const pagination = data?.pagination
+
   const { data: categories = [] } = useCategories(tenantId ? { tenantId } : undefined)
   const { mutate: deleteMenu, isPending: deleting } = useDeleteMenu()
   const { mutate: toggle } = useToggleAvailability()
@@ -41,6 +51,21 @@ export function MenuSection({ tenantId }: MenuSectionProps = {}) {
   const [formOpen, setFormOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<Menu | undefined>()
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+
+  function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setSearchQuery(e.target.value)
+    setPage(1)
+  }
+
+  function handleCategoryChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    setFilterCategory(e.target.value)
+    setPage(1)
+  }
+
+  function handlePageSizeChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    setPageSize(Number(e.target.value))
+    setPage(1)
+  }
 
   function openAdd() {
     setEditTarget(undefined)
@@ -56,25 +81,18 @@ export function MenuSection({ tenantId }: MenuSectionProps = {}) {
     return categories.find((c) => c.id === id)?.name ?? "—"
   }
 
-  
-
-  const filteredMenus = menus.filter((menu) => {
-    if (!searchQuery) return true;
-    return menu.name.toLowerCase().includes(searchQuery.toLowerCase());
-  });
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3 w-full sm:w-auto">
           <SearchBar
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={handleSearchChange}
           />
 
           <select
             value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
+            onChange={handleCategoryChange}
             className="h-10 rounded-lg border border-input bg-background px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 mb-[1px]"
           >
             <option value="">All Categories</option>
@@ -121,7 +139,7 @@ export function MenuSection({ tenantId }: MenuSectionProps = {}) {
                 </tr>
               ))}
 
-            {!isLoading && filteredMenus.length === 0 && (
+            {!isLoading && menus.length === 0 && (
               <tr>
                 {/* 3. Ubah colSpan dari 5 menjadi 6 */}
                 <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
@@ -130,7 +148,7 @@ export function MenuSection({ tenantId }: MenuSectionProps = {}) {
               </tr>
             )}
 
-            {filteredMenus.map((menu) => (
+            {menus.map((menu) => (
               <tr key={menu.id} className="border-b last:border-0 hover:bg-muted/30">
                 {/* 4. Render Image dengan fallback */}
                 <td className="px-4 py-3">
@@ -206,6 +224,56 @@ export function MenuSection({ tenantId }: MenuSectionProps = {}) {
         </table>
       </div>
 
+      {/* Pagination Controls */}
+      {pagination && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span>Rows per page:</span>
+            <select
+              value={pageSize}
+              onChange={handlePageSizeChange}
+              className="h-8 rounded-md border border-input bg-background px-2 text-xs outline-none focus-visible:border-ring"
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+            <span className="text-xs">
+              Showing{" "}
+              {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1} -{" "}
+              {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
+              {pagination.total} items
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs mr-2">
+              Page {pagination.page} of {pagination.totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+              disabled={pagination.page <= 1 || isLoading}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <span className="sr-only">Previous page</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onClick={() => setPage((prev) => Math.min(prev + 1, pagination.totalPages))}
+              disabled={pagination.page >= pagination.totalPages || isLoading}
+            >
+              <ChevronRight className="h-4 w-4" />
+              <span className="sr-only">Next page</span>
+            </Button>
+          </div>
+        </div>
+      )}
+
       <MenuFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
@@ -222,7 +290,7 @@ export function MenuSection({ tenantId }: MenuSectionProps = {}) {
         isPending={deleting}
         onConfirm={() => {
           if (deleteTarget) {
-            deleteMenu(deleteTarget, { onSuccess: () => setDeleteTarget(null) })
+            deleteMenu(deleteTarget, { onSuccess: () => setDeleteTarget(null), onError: (e) => toast.error(e.message) })
           }
         }}
       />

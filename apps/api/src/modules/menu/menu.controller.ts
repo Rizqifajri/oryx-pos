@@ -35,11 +35,17 @@ export class MenuController {
     @Query("tenantId") tenantId?: string,
     @Query("categoryId") categoryId?: string,
     @Query("isAvailable") isAvailable?: string,
+    @Query("search") search?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
   ) {
     const filters: {
       tenantId?: string;
       categoryId?: string;
       isAvailable?: boolean;
+      search?: string;
+      page?: number;
+      limit?: number;
     } = {};
 
     if (tenantId && typeof tenantId === "string") {
@@ -52,6 +58,20 @@ export class MenuController {
 
     if (isAvailable !== undefined) {
       filters.isAvailable = isAvailable === "true";
+    }
+
+    if (search && typeof search === "string" && search.trim() !== "") {
+      filters.search = search.trim();
+    }
+
+    if (page !== undefined || limit !== undefined) {
+      const parsedPage = page ? parseInt(page, 10) : 1;
+      const parsedLimit = limit ? parseInt(limit, 10) : 10;
+      filters.page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+      filters.limit =
+        Number.isFinite(parsedLimit) && parsedLimit > 0
+          ? Math.min(parsedLimit, 100)
+          : 10;
     }
 
     const menus = await this.menuService.listMenus(user, filters);

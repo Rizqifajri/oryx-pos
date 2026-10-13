@@ -53,6 +53,25 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return;
     }
 
+    // Postgres errors arrive wrapped by Drizzle; map the ones the client caused.
+    const pg = (exception as { cause?: { code?: string; message?: string } })?.cause;
+    if (pg?.code === "22P02") {
+      console.warn(`400 ${pg.message}`);
+      response.status(400).json({ success: false, message: "Invalid id or value in the request" });
+      return;
+    }
+    if (pg?.code === "23503") {
+      console.warn(`foreign key: ${pg.message}`);
+      const inUse = pg.message?.startsWith("update or delete");
+      response.status(inUse ? 409 : 400).json({
+        success: false,
+        message: inUse
+          ? "This record is still used by other data, so it can't be deleted"
+          : "A referenced record does not exist",
+      });
+      return;
+    }
+
     console.error(exception);
     response.status(500).json({
       success: false,

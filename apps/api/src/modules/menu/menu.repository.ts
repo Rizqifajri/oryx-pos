@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { Db } from "@dio-sys-be/db";
 import { menus } from "@dio-sys-be/db/schema";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, count, desc, eq, ilike, inArray, isNull } from "drizzle-orm";
 import { DRIZZLE } from "../../database/database.module";
 
 // Soft-deleted menus (deletedAt set) are hidden from every menu lookup.
@@ -33,6 +33,7 @@ export class MenuRepository {
     tenantId?: string;
     categoryId?: string;
     isAvailable?: boolean;
+    search?: string;
   }) {
     const conditions = [notDeleted];
 
@@ -45,11 +46,66 @@ export class MenuRepository {
     if (filters.isAvailable !== undefined) {
       conditions.push(eq(menus.isAvailable, filters.isAvailable));
     }
+    if (filters.search) {
+      conditions.push(ilike(menus.name, `%${filters.search}%`));
+    }
 
     return await this.db
       .select()
       .from(menus)
-      .where(and(...conditions));
+      .where(and(...conditions))
+      .orderBy(desc(menus.createdAt));
+  }
+
+  async findMenusPaginated(filters: {
+    tenantId?: string;
+    categoryId?: string;
+    isAvailable?: boolean;
+    search?: string;
+    page: number;
+    limit: number;
+  }) {
+    const conditions = [notDeleted];
+
+    if (filters.tenantId) {
+      conditions.push(eq(menus.tenantId, filters.tenantId));
+    }
+    if (filters.categoryId) {
+      conditions.push(eq(menus.categoryId, filters.categoryId));
+    }
+    if (filters.isAvailable !== undefined) {
+      conditions.push(eq(menus.isAvailable, filters.isAvailable));
+    }
+    if (filters.search) {
+      conditions.push(ilike(menus.name, `%${filters.search}%`));
+    }
+
+    const whereClause = and(...conditions);
+    const offset = (filters.page - 1) * filters.limit;
+
+    const [items, [totalRow]] = await Promise.all([
+      this.db
+        .select()
+        .from(menus)
+        .where(whereClause)
+        .orderBy(desc(menus.createdAt))
+        .limit(filters.limit)
+        .offset(offset),
+      this.db.select({ total: count() }).from(menus).where(whereClause),
+    ]);
+
+    const total = Number(totalRow?.total ?? 0);
+    const totalPages = Math.ceil(total / filters.limit) || 1;
+
+    return {
+      items,
+      pagination: {
+        page: filters.page,
+        limit: filters.limit,
+        total,
+        totalPages,
+      },
+    };
   }
 
   async findMenuById(id: string) {

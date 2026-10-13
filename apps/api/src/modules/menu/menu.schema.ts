@@ -35,9 +35,22 @@ export const bulkUpdateAvailabilitySchema = z.object({
   isAvailable: z.boolean(),
 });
 
+export const menuQuerySchema = z.object({
+  tenantId: z.string().uuid().optional(),
+  categoryId: z.string().uuid().optional(),
+  isAvailable: z
+    .enum(["true", "false"])
+    .transform((val) => val === "true")
+    .optional(),
+  search: z.string().trim().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+});
+
 export type CreateMenuInput = z.infer<typeof createMenuSchema>;
 export type UpdateMenuInput = z.infer<typeof updateMenuSchema>;
 export type ToggleAvailabilityInput = z.infer<typeof toggleAvailabilitySchema>;
 export type BulkUpdateAvailabilityInput = z.infer<
   typeof bulkUpdateAvailabilitySchema
 >;
+export type MenuQueryInput = z.infer<typeof menuQuerySchema>;
