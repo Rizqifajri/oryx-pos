@@ -357,10 +357,10 @@ function MenuCard({
         aria-label={`Add ${menu.name}, ${formatIdr(menu.price)}`}
         className="flex flex-1 flex-col text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
       >
-        <div className="relative aspect-[4/3] w-full bg-muted">
+        <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-muted">
           {menu.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={menu.imageUrl} alt="" loading="lazy" className="size-full object-cover" />
+            <img src={menu.imageUrl} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" />
           ) : (
             <div className="grid size-full place-items-center text-muted-foreground">
               <ImageIcon className="size-6" />

@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { CheckCircle2 } from "lucide-react"
+import { CheckCircle2, Minus, Plus } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -15,15 +15,18 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatIdr } from "@/lib/format"
 import {
+  assignRest,
+  bumpUnit,
   customAmounts,
   equalAmounts,
-  expandUnits,
+  initialAssignment,
   itemAmounts,
   itemsPayload,
+  resizeAssignment,
+  type ItemAssignment,
   type SplitItem,
   type SplitMode,
   type SplitPayload,
-  type UnitAssignment,
 } from "@/lib/split-bill"
 import { cn } from "@/lib/utils"
 import {
@@ -227,23 +230,27 @@ function detailItems(detail: TableSessionDetail): SplitItem[] {
 function SplitEditor({ detail, sessionId, onDone }: { detail: TableSessionDetail; sessionId: string; onDone: () => void }) {
   const total = detail.bill.totalAmount
   const items = useMemo(() => detailItems(detail), [detail])
-  const units = useMemo(() => expandUnits(items), [items])
+  const unitCount = items.reduce((s, i) => s + i.quantity, 0)
   const split = useSplitSession()
 
   const [mode, setMode] = useState<SplitMode>("equal")
   const [count, setCount] = useState(2)
   const [names, setNames] = useState<string[]>([])
-  const [assignment, setAssignment] = useState<UnitAssignment>(() => Object.fromEntries(units.map((u) => [u.key, 0])))
+  const [assignment, setAssignment] = useState<ItemAssignment>(() => initialAssignment(items, 2))
   const [custom, setCustom] = useState<string[]>([])
+  const [active, setActive] = useState(0)
 
   const labels = Array.from({ length: count }, (_, i) => names[i] ?? "")
+  const shareName = (i: number) => labels[i]?.trim() || `Share ${i + 1}`
   const customState = customAmounts(Array.from({ length: count }, (_, i) => custom[i] ?? ""), total)
   const itemState = itemAmounts(items, assignment, count, total)
   const amounts = mode === "equal" ? equalAmounts(total, count) : mode === "items" ? itemState.amounts : customState.cents
-  const maxCount = mode === "items" ? Math.min(10, Math.max(2, units.length)) : 20
+  const maxCount = mode === "items" ? Math.min(10, Math.max(2, unitCount)) : 20
 
   const problem =
-    mode === "items" && itemState.emptyShares.some(Boolean)
+    mode === "items" && itemState.unassigned > 0
+      ? `${itemState.unassigned} item(s) not assigned to a share yet.`
+      : mode === "items" && itemState.emptyShares.some(Boolean)
       ? "Every share needs at least one item."
       : mode === "custom" && customState.remaining !== 0
         ? customState.remaining > 0
@@ -256,7 +263,8 @@ function SplitEditor({ detail, sessionId, onDone }: { detail: TableSessionDetail
   function changeCount(n: number) {
     const next = Math.min(maxCount, Math.max(2, n))
     setCount(next)
-    setAssignment((a) => Object.fromEntries(Object.entries(a).map(([k, v]) => [k, v >= next ? 0 : v])))
+    setAssignment((a) => resizeAssignment(a, next))
+    setActive((s) => Math.min(s, next - 1))
   }
 
   function submit() {
@@ -285,7 +293,7 @@ function SplitEditor({ detail, sessionId, onDone }: { detail: TableSessionDetail
         value={mode}
         onChange={(m) => {
           setMode(m)
-          if (m === "items") changeCount(Math.min(count, Math.max(2, units.length)))
+          if (m === "items") changeCount(Math.min(count, Math.max(2, unitCount)))
         }}
         options={[
           { value: "equal", label: "Evenly" },
@@ -306,33 +314,61 @@ function SplitEditor({ detail, sessionId, onDone }: { detail: TableSessionDetail
       </label>
 
       {mode === "items" && (
-        <div className="rounded-md border">
-          <div className="border-b bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground">Assign each item to a share</div>
-          <ul className="max-h-56 divide-y overflow-y-auto">
-            {units.map(({ key, item }) => (
-              <li key={key} className="flex items-center gap-2 px-3 py-1.5 text-sm">
-                <span className="min-w-0 flex-1 truncate">{item.name}</span>
-                <span className="w-20 text-right text-xs text-muted-foreground tabular-nums">{formatIdr(item.price)}</span>
-                <div className="flex gap-1" role="radiogroup" aria-label={`Share for ${item.name}`}>
-                  {Array.from({ length: count }, (_, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      role="radio"
-                      aria-checked={assignment[key] === i}
-                      onClick={() => setAssignment((a) => ({ ...a, [key]: i }))}
-                      className={cn(
-                        "size-7 rounded text-xs font-medium tabular-nums",
-                        assignment[key] === i ? "bg-foreground text-background" : "bg-muted text-muted-foreground",
-                      )}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
-                </div>
-              </li>
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">Pick a share, then add what that guest had.</p>
+          <div className="flex gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label="Shares">
+            {labels.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                role="tab"
+                aria-selected={active === i}
+                onClick={() => setActive(i)}
+                className={cn(
+                  "shrink-0 rounded-md border px-3 py-1.5 text-left",
+                  active === i ? "border-foreground bg-foreground text-background" : "bg-background",
+                )}
+              >
+                <span className="block max-w-28 truncate text-xs font-medium">{shareName(i)}</span>
+                <span className="block text-xs tabular-nums opacity-75">{formatIdr(amounts[i] ?? 0)}</span>
+              </button>
             ))}
+          </div>
+          <ul className="max-h-56 divide-y overflow-y-auto rounded-md border">
+            {items.map((item) => {
+              const counts = assignment[item.id] ?? []
+              const mine = counts[active] ?? 0
+              const left = item.quantity - counts.reduce((s, n) => s + n, 0)
+              const others = counts.flatMap((n, s) => (s !== active && n ? [`${shareName(s)} ${n}`] : []))
+              const bump = (d: 1 | -1) => setAssignment((a) => ({ ...a, [item.id]: bumpUnit(counts, active, d, item.quantity) }))
+              return (
+                <li key={item.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{item.quantity}× {item.name}</span>
+                    <span className="block truncate text-xs text-muted-foreground tabular-nums">
+                      {formatIdr(item.price)}
+                      {left > 0 ? <span className="text-destructive"> · {left} left</span> : " · all assigned"}
+                      {others.length > 0 && ` · ${others.join(", ")}`}
+                    </span>
+                  </span>
+                  <div className="inline-flex items-center rounded-md border">
+                    <Button type="button" size="icon-sm" variant="ghost" aria-label={`One less ${item.name} for ${shareName(active)}`} disabled={!mine} onClick={() => bump(-1)}>
+                      <Minus />
+                    </Button>
+                    <span className="min-w-6 text-center font-medium tabular-nums" aria-live="polite">{mine}</span>
+                    <Button type="button" size="icon-sm" variant="ghost" aria-label={`One more ${item.name} for ${shareName(active)}`} disabled={!left} onClick={() => bump(1)}>
+                      <Plus />
+                    </Button>
+                  </div>
+                </li>
+              )
+            })}
           </ul>
+          {itemState.unassigned > 0 && (
+            <Button type="button" size="sm" variant="outline" onClick={() => setAssignment((a) => assignRest(a, items, active))}>
+              Give the rest ({itemState.unassigned}) to {shareName(active)}
+            </Button>
+          )}
         </div>
       )}
 
