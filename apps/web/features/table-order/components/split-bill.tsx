@@ -6,15 +6,18 @@ import { toast } from "sonner"
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import {
+  assignRest,
+  bumpUnit,
   customAmounts,
   equalAmounts,
-  expandUnits,
+  initialAssignment,
   itemAmounts,
   itemsPayload,
+  resizeAssignment,
+  type ItemAssignment,
   type SplitItem,
   type SplitMode,
   type SplitPayload,
-  type UnitAssignment,
 } from "@/lib/split-bill"
 import { formatRupiah } from "../format"
 import {
@@ -87,25 +90,26 @@ export function SplitBillSheet({ view, open, onOpenChange }: { view: SessionView
 function SplitEditor({ view, onDone }: { view: SessionView; onDone: () => void }) {
   const total = view.bill.totalAmount
   const items = useMemo(() => billItems(view), [view])
-  const units = useMemo(() => expandUnits(items), [items])
   const split = useSplitBill()
 
   const [mode, setMode] = useState<SplitMode>("equal")
   const [count, setCount] = useState(2)
   const [names, setNames] = useState<string[]>([])
-  const [assignment, setAssignment] = useState<UnitAssignment>(() =>
-    Object.fromEntries(units.map((u) => [u.key, 0])),
-  )
+  const [assignment, setAssignment] = useState<ItemAssignment>(() => initialAssignment(items, 2))
   const [custom, setCustom] = useState<string[]>([])
+  const [active, setActive] = useState(0)
 
   const labels = Array.from({ length: count }, (_, i) => names[i] ?? "")
+  const shareName = (i: number) => labels[i]?.trim() || `Bagian ${i + 1}`
   const customState = customAmounts(Array.from({ length: count }, (_, i) => custom[i] ?? ""), total)
   const itemState = itemAmounts(items, assignment, count, total)
   const amounts =
     mode === "equal" ? equalAmounts(total, count) : mode === "items" ? itemState.amounts : customState.cents
 
   const problem =
-    mode === "items" && itemState.emptyShares.some(Boolean)
+    mode === "items" && itemState.unassigned > 0
+      ? `Masih ada ${itemState.unassigned} item belum dibagi.`
+      : mode === "items" && itemState.emptyShares.some(Boolean)
       ? "Setiap bagian harus punya minimal satu item."
       : mode === "custom" && customState.remaining !== 0
         ? customState.remaining > 0
@@ -166,41 +170,70 @@ function SplitEditor({ view, onDone }: { view: SessionView; onDone: () => void }
 
         <CountStepper label="Jumlah bagian" value={count} min={2} max={mode === "items" ? 6 : 10} onChange={(n) => {
           setCount(n)
-          // Units assigned to a share that no longer exists go back to share 1.
-          setAssignment((a) => Object.fromEntries(Object.entries(a).map(([k, v]) => [k, v >= n ? 0 : v])))
+          setAssignment((a) => resizeAssignment(a, n))
+          setActive((s) => Math.min(s, n - 1))
         }} />
 
         {mode === "items" && (
-          <section aria-label="Pilih item per bagian" className="space-y-1.5">
-            <p className="text-[12px] font-semibold">Siapa bayar apa?</p>
-            <ul className="divide-y divide-pm-line rounded-[12px] bg-pm-bg">
-              {units.map(({ key, item }) => (
-                <li key={key} className="flex items-center gap-2 px-3 py-2">
-                  <span className="min-w-0 flex-1 text-[13px]">
-                    <span className="block truncate font-semibold">{item.name}</span>
-                    <span className="text-[11px] text-pm-muted tabular-nums">{formatRupiah(item.price)}</span>
-                  </span>
-                  <div className="flex gap-1" role="radiogroup" aria-label={`Bagian untuk ${item.name}`}>
-                    {Array.from({ length: count }, (_, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        role="radio"
-                        aria-checked={assignment[key] === i}
-                        aria-label={labels[i]?.trim() || `Bagian ${i + 1}`}
-                        onClick={() => setAssignment((a) => ({ ...a, [key]: i }))}
-                        className={cn(
-                          "grid size-8 place-items-center rounded-full text-[12px] font-bold tabular-nums",
-                          assignment[key] === i ? "bg-pm-ink text-white" : "bg-pm-surface text-pm-muted",
-                        )}
-                      >
-                        {i + 1}
-                      </button>
-                    ))}
-                  </div>
-                </li>
+          <section aria-label="Pilih item per bagian" className="space-y-2">
+            <p className="text-[12px] font-semibold">Pilih bagian, lalu tambahkan pesanannya</p>
+            <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1" role="tablist" aria-label="Bagian">
+              {labels.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  role="tab"
+                  aria-selected={active === i}
+                  onClick={() => setActive(i)}
+                  className={cn(
+                    "shrink-0 rounded-[12px] px-3 py-1.5 text-left",
+                    active === i ? "bg-pm-ink text-white" : "bg-pm-bg text-pm-ink",
+                  )}
+                >
+                  <span className="block max-w-28 truncate text-[12px] font-bold">{shareName(i)}</span>
+                  <span className="block text-[11px] tabular-nums opacity-75">{formatRupiah(amounts[i] ?? 0)}</span>
+                </button>
               ))}
+            </div>
+            <ul className="divide-y divide-pm-line rounded-[12px] bg-pm-bg">
+              {items.map((item) => {
+                const counts = assignment[item.id] ?? []
+                const mine = counts[active] ?? 0
+                const left = item.quantity - counts.reduce((s, n) => s + n, 0)
+                const others = counts.flatMap((n, s) => (s !== active && n ? [`${shareName(s)} ${n}`] : []))
+                const bump = (d: 1 | -1) => setAssignment((a) => ({ ...a, [item.id]: bumpUnit(counts, active, d, item.quantity) }))
+                return (
+                  <li key={item.id} className="flex items-center gap-2 px-3 py-2.5">
+                    <span className="min-w-0 flex-1 text-[13px]">
+                      <span className="block truncate font-semibold">{item.quantity}× {item.name}</span>
+                      <span className="block truncate text-[11px] text-pm-muted tabular-nums">
+                        {formatRupiah(item.price)}
+                        {left > 0 ? <span className="font-semibold text-pm-danger"> · sisa {left}</span> : " · sudah dibagi"}
+                        {others.length > 0 && ` · ${others.join(", ")}`}
+                      </span>
+                    </span>
+                    <div className={cn("inline-flex h-9 items-center rounded-full", mine ? "bg-pm-ink text-white" : "bg-pm-surface text-pm-ink")}>
+                      <button type="button" aria-label={`Kurangi ${item.name} dari ${shareName(active)}`} disabled={!mine} onClick={() => bump(-1)} className="grid size-9 place-items-center disabled:opacity-30">
+                        <Minus className="size-3.5" />
+                      </button>
+                      <span className="min-w-5 text-center text-[14px] font-bold tabular-nums" aria-live="polite">{mine}</span>
+                      <button type="button" aria-label={`Tambah ${item.name} ke ${shareName(active)}`} disabled={!left} onClick={() => bump(1)} className="grid size-9 place-items-center disabled:opacity-30">
+                        <Plus className="size-3.5" />
+                      </button>
+                    </div>
+                  </li>
+                )
+              })}
             </ul>
+            {itemState.unassigned > 0 && (
+              <button
+                type="button"
+                onClick={() => setAssignment((a) => assignRest(a, items, active))}
+                className="text-[12px] font-bold text-pm-ink underline underline-offset-4"
+              >
+                Semua sisa ({itemState.unassigned}) ke {shareName(active)}
+              </button>
+            )}
           </section>
         )}
 
