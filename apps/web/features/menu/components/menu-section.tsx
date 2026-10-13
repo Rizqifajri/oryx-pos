@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { toast } from "sonner"
 // Tambahkan import ImageIcon untuk fallback gambar kosong
 import { Pencil, Plus, Trash2, Image as ImageIcon } from "lucide-react"
 
@@ -222,7 +223,7 @@ export function MenuSection({ tenantId }: MenuSectionProps = {}) {
         isPending={deleting}
         onConfirm={() => {
           if (deleteTarget) {
-            deleteMenu(deleteTarget, { onSuccess: () => setDeleteTarget(null) })
+            deleteMenu(deleteTarget, { onSuccess: () => setDeleteTarget(null), onError: (e) => toast.error(e.message) })
           }
         }}
       />

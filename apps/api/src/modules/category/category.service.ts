@@ -3,6 +3,7 @@ import { AppError } from "../../common/errors/app-error";
 import { SessionEventsService } from "../../common/realtime/session-events.service";
 import type { UserContext } from "../../common/types/user-context";
 import { assertTenantMatch } from "../../common/utils/assert-permission";
+import { MenuRepository } from "../menu/menu.repository";
 import { TenantRepository } from "../tenant/tenant.repository";
 import { CategoryRepository } from "./category.repository";
 import type {
@@ -15,6 +16,7 @@ export class CategoryService {
   constructor(
     private readonly categoryRepo: CategoryRepository,
     private readonly tenantRepo: TenantRepository,
+    private readonly menuRepo: MenuRepository,
     private readonly events: SessionEventsService,
   ) {}
 
@@ -129,6 +131,15 @@ export class CategoryService {
 
     if (ctx.scope === "TENANT") {
       assertTenantMatch(ctx, category.tenantId);
+    }
+
+    const menus = await this.menuRepo.findMenusByCategoryId(id);
+    if (menus.length > 0) {
+      throw new AppError(
+        `${menus.length} menu(s) are still in this category. Move or delete them first.`,
+        409,
+        { code: "CATEGORY_IN_USE" },
+      );
     }
 
     const deleted = await this.categoryRepo.deleteCategory(id);

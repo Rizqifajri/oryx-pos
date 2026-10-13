@@ -10,7 +10,7 @@ Open problems, most important first. Each one was checked against the code as of
 
 ## Data
 
-4. **Deletes with dependents fail with a 500.** No foreign key has an `onDelete` rule, so deleting a tenant, category or role that still has rows pointing at it raises a raw Postgres error.
+4. **A category can't be deleted once any of its menus was deleted.** Deleting a menu only hides it (orders still point at it), so its category keeps a database reference and the delete returns 409 "still used by other data". Deleting a category with live menus, or a role users still have, returns a clear 409. Fix: soft-delete categories the same way as menus.
 5. **Day-only creation dates.** `created_at` is a `date` (no time of day) on 10 tables. Newer tables (sessions, bills, payments, service requests) use `timestamp`.
 6. **Migrations out of sync.** `packages/db/src/migrations/meta/_journal.json` registers 5 of the 10 SQL migrations, and `packages/db/fix-role-permissions.sql` is a manual hotfix outside the migrations folder. `db:push` is the working path; either commit to it and delete the stale migrations, or regenerate a clean baseline and use `db:migrate`.
 

@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { Db, DbOrTx } from "@dio-sys-be/db";
-import { permissions, rolePermissions, roles } from "@dio-sys-be/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { permissions, rolePermissions, roles, users } from "@dio-sys-be/db/schema";
+import { count, eq, inArray } from "drizzle-orm";
 import { DRIZZLE } from "../../database/database.module";
 
 @Injectable()
@@ -119,12 +119,18 @@ export class RoleRepository {
     return result[0] || null;
   }
 
+  async countUsersWithRole(roleId: string) {
+    const [row] = await this.db.select({ n: count() }).from(users).where(eq(users.roleId, roleId));
+    return row?.n ?? 0;
+  }
+
   async deleteRole(id: string) {
-    const result = await this.db
-      .delete(roles)
-      .where(eq(roles.id, id))
-      .returning();
-    return result[0] || null;
+    // One transaction: if users still hold the role, its permissions are kept.
+    return await this.db.transaction(async (tx) => {
+      await tx.delete(rolePermissions).where(eq(rolePermissions.roleId, id));
+      const result = await tx.delete(roles).where(eq(roles.id, id)).returning();
+      return result[0] || null;
+    });
   }
 
   async syncRolePermissions(

@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { Db } from "@dio-sys-be/db";
 import { env } from "@dio-sys-be/env/server";
+import { createHash, timingSafeEqual } from "node:crypto";
 import bcrypt from "bcrypt";
 import { jwtVerify, SignJWT } from "jose";
 import { GLOBAL_ONLY_PERMISSIONS } from "../../common/constants/permissions";
@@ -40,6 +41,16 @@ const parseExpiresIn = (expiresIn: string): Date => {
     d: 86_400_000,
   };
   return new Date(Date.now() + value * (units[match[2]!] ?? 86_400_000));
+};
+
+// Not bcrypt: it only reads the first 72 bytes, and a user's refresh JWTs share
+// a longer prefix, so every old token would match the newest hash.
+const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
+
+const tokenMatches = (token: string, storedHash: string) => {
+  const a = Buffer.from(hashToken(token));
+  const b = Buffer.from(storedHash);
+  return a.length === b.length && timingSafeEqual(a, b);
 };
 
 @Injectable()
@@ -178,7 +189,7 @@ export class AuthService {
       .setExpirationTime(env.JWT_REFRESH_EXPIRES_IN)
       .sign(refreshSecret);
 
-    const hashedRefreshToken = await bcrypt.hash(refreshToken, 12);
+    const hashedRefreshToken = hashToken(refreshToken);
     await this.authRepo.updateUserRefreshToken(
       user.id,
       hashedRefreshToken,
@@ -214,11 +225,7 @@ export class AuthService {
     if (!storedUser || !storedUser.refreshToken) {
       throw new AppError("Refresh token has been revoked", 401);
     }
-    const refreshTokenMatches = await bcrypt.compare(
-      input.refreshToken,
-      storedUser.refreshToken,
-    );
-    if (!refreshTokenMatches) {
+    if (!tokenMatches(input.refreshToken, storedUser.refreshToken)) {
       throw new AppError("Refresh token has been revoked", 401);
     }
 
@@ -275,7 +282,7 @@ export class AuthService {
       .setExpirationTime(env.JWT_REFRESH_EXPIRES_IN)
       .sign(newRefreshSecret);
 
-    const hashedNewRefreshToken = await bcrypt.hash(newRefreshToken, 12);
+    const hashedNewRefreshToken = hashToken(newRefreshToken);
     await this.authRepo.updateUserRefreshToken(
       storedUser.id,
       hashedNewRefreshToken,
