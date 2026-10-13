@@ -25,12 +25,12 @@ const routesOf = (file: string): { module: string; routes: Route[] }[] => {
     const base = chunk.match(/@Controller\(\s*["'`]([^"'`]*)["'`]/)?.[1];
     if (base === undefined) return [];
     // A class-level @Public() sits just before @Controller, i.e. at the end of the previous chunk.
-    const classPublic = i > 0 && /@Public\(\)\s*$/.test(chunks[i - 1]);
+    const classPublic = i > 0 && /@Public\(\)\s*$/.test(chunks[i - 1] ?? "");
     const routes: Route[] = [];
     const re = /((?:\s*@\w+\([^)]*\))*?)\s*@(Get|Post|Patch|Put|Delete|Sse)\(\s*(?:["'`]([^"'`]*)["'`])?\s*\)((?:\s*@\w+\([^)]*\))*)/g;
     for (const m of chunk.matchAll(re)) {
       const decorators = `${m[1]} ${m[4]}`;
-      const perms = decorators.match(/@RequirePermissions\(([^)]*)\)/)?.[1].match(/["'][^"']+["']/g)?.map((p) => `\`${p.slice(1, -1)}\``);
+      const perms = decorators.match(/@RequirePermissions\(([^)]*)\)/)?.[1]?.match(/["'][^"']+["']/g)?.map((p) => `\`${p.slice(1, -1)}\``);
       const access = perms
         ? perms.join(" or ")
         : /GuestSessionGuard/.test(decorators)
@@ -38,7 +38,7 @@ const routesOf = (file: string): { module: string; routes: Route[] }[] => {
           : classPublic || /@Public\(\)/.test(decorators)
             ? "public"
             : "any signed-in user";
-      routes.push({ method: m[2] === "Sse" ? "GET (SSE)" : m[2].toUpperCase(), path: `/${[base, m[3]].filter(Boolean).join("/")}`, access });
+      routes.push({ method: m[2] === "Sse" ? "GET (SSE)" : (m[2] ?? "").toUpperCase(), path: `/${[base, m[3]].filter(Boolean).join("/")}`, access });
     }
     return routes.length ? [{ module: base, routes }] : [];
   });
