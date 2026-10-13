@@ -115,6 +115,34 @@ export class AuthRepository {
     };
   }
 
+  /**
+   * Live scope + permissions for a user, read on every authenticated request so
+   * a role edit takes effect immediately instead of when the 24h token expires.
+   */
+  async findUserAuthContext(userId: string) {
+    const rows = await this.db
+      .select({
+        tenantId: users.tenantId,
+        scope: roles.scope,
+        permission: permissions.name,
+      })
+      .from(users)
+      .innerJoin(roles, eq(users.roleId, roles.id))
+      .leftJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
+      .leftJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+      .where(eq(users.id, userId));
+
+    if (!rows[0]) return null;
+
+    return {
+      tenantId: rows[0].tenantId,
+      scope: rows[0].scope,
+      permissions: rows
+        .map((r) => r.permission)
+        .filter((name): name is string => name !== null),
+    };
+  }
+
   async updateUserRefreshToken(
     userId: string,
     refreshToken: string,

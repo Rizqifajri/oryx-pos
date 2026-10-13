@@ -39,8 +39,7 @@ export function CategorySection({ tenantId }: CategorySectionProps = {}) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold">Categories</h2>
+      <div className="flex items-center justify-end">
         <PermissionGuard permissions={PERMISSIONS.CATEGORY_CREATE}>
           <Button size="sm" onClick={openAdd}>
             <Plus />

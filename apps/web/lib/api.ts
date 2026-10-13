@@ -74,12 +74,18 @@ axiosInstance.interceptors.response.use(
     return response.data.data as never
   },
   async (error: AxiosError<ApiErrorEnvelope>) => {
-    if (error.response?.status === 401) {
-      // Attempt token refresh
-      const refreshed = await tryRefreshToken()
-      if (refreshed && error.config) {
-        error.config.headers.Authorization = `Bearer ${refreshed}`
-        return axiosInstance.request(error.config)
+    const config = error.config as (InternalAxiosRequestConfig & { _retried?: boolean }) | undefined
+    // A 401 from login/register/refresh means "wrong credentials", not "session
+    // expired" — hand it back to the form instead of reloading the page.
+    const isAuthAttempt = /\/auth\/(login|register|refresh)$/.test(config?.url ?? "")
+
+    if (error.response?.status === 401 && !isAuthAttempt) {
+      // Refresh once per request, so a request that keeps failing can't loop.
+      const refreshed = config && !config._retried ? await tryRefreshToken() : null
+      if (refreshed && config) {
+        config._retried = true
+        config.headers.Authorization = `Bearer ${refreshed}`
+        return axiosInstance.request(config)
       }
 
       // Refresh failed — clear session and redirect

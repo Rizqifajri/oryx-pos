@@ -1,30 +1,26 @@
 "use client"
 
 import { useState } from "react"
-import { getStoredUser } from "@/features/auth/hooks/use-auth"
+import { PageHeader } from "@/components/page-header"
 import { TenantFilter } from "@/components/tenant-filter"
+import { useMe } from "@/features/auth/hooks/use-me"
 import { RoleSection } from "../components/role-section"
 
 export function RolesPage() {
   const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null)
-  const userScope = getStoredUser()?.scope
+  const { data: me } = useMe()
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold">Roles & Permissions</h1>
-          <p className="text-sm text-muted-foreground">View and manage roles and their permission sets.</p>
-        </div>
-        
-        {userScope === "GLOBAL" && (
-          <TenantFilter
-            value={selectedTenantId}
-            onChange={setSelectedTenantId}
-          />
-        )}
-      </div>
-      
+      <PageHeader
+        title="Roles"
+        description="A role is a named set of permissions. Assign it to staff on the Users page."
+        actions={
+          me?.scope === "GLOBAL" && (
+            <TenantFilter value={selectedTenantId} onChange={setSelectedTenantId} />
+          )
+        }
+      />
       <RoleSection tenantId={selectedTenantId} />
     </div>
   )

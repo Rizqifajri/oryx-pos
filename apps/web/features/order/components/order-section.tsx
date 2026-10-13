@@ -12,6 +12,7 @@ import { PERMISSIONS } from "@/constants/permissions"
 import { useOrders, useUpdateOrderStatus, useCreateTransaction } from "../hooks/use-orders"
 import { ServiceRequestsPanel } from "./service-requests-panel"
 import type { Order, OrderStatus } from "../types"
+import { formatIdr, formatDateTime } from "@/lib/format"
 
 const STATUS_TABS: { label: string; value: OrderStatus | "ALL" }[] = [
   { label: "All", value: "ALL" },
@@ -33,21 +34,6 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   PROCESSING: "Processing",
   COMPLETED: "Completed",
   CANCELED: "Canceled",
-}
-
-function formatPrice(cents: number) {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-  }).format(cents / 100)
-}
-
-function formatTime(iso: string) {
-  return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(iso))
 }
 
 function NextStatusButton({ order }: { order: Order }) {
@@ -131,7 +117,6 @@ function CancelButton({ order }: { order: Order }) {
   }
   return null
 }
-
 
 interface OrderSectionProps {
   tenantId?: string | null
@@ -217,13 +202,13 @@ export function OrderSection({ tenantId }: OrderSectionProps = {}) {
 
             {!isLoading && orders.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                   No orders found.
                 </td>
               </tr>
             )}
 
-            {orders.map((order: any) => (
+            {orders.map((order) => (
               <tr key={order.id} className="border-b last:border-0 hover:bg-muted/30">
                 <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                   #{order.id.slice(-6).toUpperCase()}
@@ -233,13 +218,9 @@ export function OrderSection({ tenantId }: OrderSectionProps = {}) {
                     </span>
                   )}
                 </td>
-                <td className="px-4 py-3 font-bold text-lg">
-                  <span className="text-2xl font-bold">
-                    {order.tableName ? order.tableName.replace(/meja/i, '').trim() : '-'}
-                  </span>
-                </td>
+                <td className="px-4 py-3 font-medium">{order.tableName ?? "—"}</td>
                 <td className="px-4 py-3">
-                  <span className="font-medium text-blue-600">
+                  <span className="font-medium">
                     {order.customerName || (order.sessionId ? "Table guest" : "Guest")}
                   </span>
                 </td>
@@ -263,7 +244,7 @@ export function OrderSection({ tenantId }: OrderSectionProps = {}) {
                   )}
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums font-medium">
-                  {formatPrice(order.totalPrice)}
+                  {formatIdr(order.totalPrice)}
                 </td>
                 <td className="px-4 py-3 text-center">
                   <span className={cn(
@@ -274,7 +255,7 @@ export function OrderSection({ tenantId }: OrderSectionProps = {}) {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">
-                  {formatTime(order.submittedAt ?? order.createdAt)}
+                  {formatDateTime(order.submittedAt ?? order.createdAt)}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-1">

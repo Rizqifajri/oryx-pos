@@ -47,7 +47,6 @@ export type TenantDashboardStats = {
   ordersToday: number
   activeOrders: number
   orderStatusSegments: StatSegment[]
-  menuAvailabilitySegments: StatSegment[]
   menusByCategorySegments: StatSegment[]
 }
 

@@ -96,9 +96,24 @@ export class RoleRepository {
     data: { name?: string; scope?: "GLOBAL" | "TENANT" },
     tx: DbOrTx = this.db,
   ) {
+    const values = Object.fromEntries(
+      Object.entries(data).filter(([, v]) => v !== undefined),
+    );
+
+    // Editing only a role's permissions sends no column changes, and Drizzle
+    // throws on an empty `set()`. Return the row unchanged instead.
+    if (Object.keys(values).length === 0) {
+      const existing = await tx
+        .select()
+        .from(roles)
+        .where(eq(roles.id, id))
+        .limit(1);
+      return existing[0] || null;
+    }
+
     const result = await tx
       .update(roles)
-      .set(data)
+      .set(values)
       .where(eq(roles.id, id))
       .returning();
     return result[0] || null;

@@ -51,15 +51,6 @@ export function aggregateTenantStats(data: TenantRawData): TenantDashboardStats 
       COMPLETED: "Completed",
       CANCELED: "Canceled",
     }),
-    menuAvailabilitySegments: [
-      { key: "available", label: "Available", value: availableMenuCount, color: CHART_COLORS[0] },
-      {
-        key: "unavailable",
-        label: "Unavailable",
-        value: unavailableMenuCount,
-        color: CHART_COLORS[2],
-      },
-    ].filter((s) => s.value > 0),
     menusByCategorySegments,
   }
 }

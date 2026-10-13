@@ -4,7 +4,7 @@ import { TenantPage } from "@/features/tenant/pages/tenant"
 
 export default function Page() {
   return (
-    <RequirePermission permissions={PERMISSIONS.TENANT_MANAGE}>
+    <RequirePermission permissions={PERMISSIONS.TENANT_LIST}>
       <TenantPage />
     </RequirePermission>
   )

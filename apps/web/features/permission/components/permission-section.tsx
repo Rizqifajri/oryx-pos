@@ -37,8 +37,7 @@ export function PermissionSection() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold">Permissions</h2>
+      <div className="flex items-center justify-end">
         <PermissionGuard permissions={PERMISSIONS.PERMISSION_CREATE}>
           <Button size="sm" onClick={openAdd}>
             <Plus />

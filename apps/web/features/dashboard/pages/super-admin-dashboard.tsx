@@ -1,10 +1,10 @@
 "use client"
 
 import { Building2, UserPlus, Users } from "lucide-react"
+import { PageHeader } from "@/components/page-header"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useSuperAdminDashboardStats } from "../hooks/use-super-admin-dashboard-stats"
-import { OrdersDonutChart } from "../components/orders-donut-chart"
 import { StackedBarChart } from "../components/stacked-bar-chart"
 import { StatCard } from "../components/stat-card"
 import { TenantListCard } from "../components/tenant-list-card"
@@ -12,82 +12,54 @@ import { TenantListCard } from "../components/tenant-list-card"
 export function SuperAdminDashboardPage() {
   const { stats, isLoading, isError } = useSuperAdminDashboardStats()
 
-  const usersPerTenantSegments = stats.tenantList
-    .filter((t) => t.userCount > 0)
-    .slice(0, 8)
-    .map((t, i) => ({
-      key: t.tenantId,
-      label: t.name,
-      value: t.userCount,
-      color: `var(--chart-${(i % 5) + 1})`,
-    }))
-
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6">
-      <div>
-        <h1 className="text-xl font-semibold">Platform Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
-          Monitor and manage restaurant clients (tenants) using DIO Systems.
-        </p>
-      </div>
+    <div className="space-y-6 p-6">
+      <PageHeader title="Platform" description="Every restaurant running on Oryx, at a glance." />
 
       {isError && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          Failed to load platform data. Ensure you are logged in with GLOBAL scope.
+          Failed to load platform data. Check your connection and try again.
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-3">
         <StatCard
-          title="Total Tenants"
+          title="Restaurants"
           value={stats.tenantCount}
-          description="Registered restaurant clients"
+          description="Registered tenants"
           icon={Building2}
           loading={isLoading}
+          href="/tenants"
         />
         <StatCard
-          title="Platform Users"
+          title="Staff accounts"
           value={stats.userCount}
-          description="Staff accounts across all tenants"
+          description="Across all restaurants"
           icon={Users}
           loading={isLoading}
+          href="/users"
         />
         <StatCard
-          title="New This Month"
+          title="New this month"
           value={stats.tenantsThisMonth}
-          description="Tenants registered this month"
+          description="Restaurants that signed up"
           icon={UserPlus}
           loading={isLoading}
+          href="/tenants"
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 lg:grid-cols-3">
         <TenantListCard tenants={stats.tenantList} loading={isLoading} />
-        <Card size="sm" className="shadow-sm lg:col-span-1 xl:col-span-3">
+        <Card size="sm" className="shadow-sm lg:col-span-2">
           <CardContent className="pt-4">
             {isLoading ? (
               <Skeleton className="h-[200px] w-full" />
             ) : (
               <StackedBarChart
-                title="Staff Distribution by Tenant"
-                segments={usersPerTenantSegments}
-                emptyMessage="No staff assigned to tenants yet"
-              />
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card size="sm" className="shadow-sm">
-          <CardContent className="pt-4">
-            {isLoading ? (
-              <Skeleton className="h-[220px] w-full" />
-            ) : (
-              <OrdersDonutChart
-                title="Users by Tenant"
+                title="Staff per restaurant"
                 segments={stats.usersByTenantSegments}
-                centerLabel="Users"
+                emptyMessage="No staff assigned to restaurants yet"
               />
             )}
           </CardContent>

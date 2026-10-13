@@ -9,14 +9,7 @@ import { PERMISSIONS } from "@/constants/permissions"
 
 import { useMenus, useToggleAvailability, useBulkAvailability } from "@/features/menu/hooks/use-menus"
 import { useCategories } from "@/features/menu/hooks/use-categories"
-
-function formatPrice(cents: number) {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-  }).format(cents / 100)
-}
+import { formatIdr } from "@/lib/format"
 
 interface InventorySectionProps {
   tenantId?: string | null
@@ -161,7 +154,7 @@ export function InventorySection({ tenantId }: InventorySectionProps) {
 
             {!isLoading && menus.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
                   No menu items found.
                 </td>
               </tr>
@@ -196,7 +189,7 @@ export function InventorySection({ tenantId }: InventorySectionProps) {
                   {categoryName(menu.categoryId)}
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums">
-                  {formatPrice(menu.price)}
+                  {formatIdr(menu.price)}
                 </td>
                 <td className="px-4 py-3 text-center">
                   <PermissionGuard permissions={PERMISSIONS.MENU_UPDATE}>
@@ -204,7 +197,7 @@ export function InventorySection({ tenantId }: InventorySectionProps) {
                       disabled={toggling}
                       onClick={() => toggle({ id: menu.id, isAvailable: !menu.isAvailable })}
                       className={cn(
-                        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset transition-colors disabled:opacity-50",
+                        "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset transition-colors disabled:opacity-50",
                         menu.isAvailable
                           ? "bg-green-50 text-green-700 ring-green-600/20 hover:bg-green-100"
                           : "bg-red-50 text-red-700 ring-red-600/20 hover:bg-red-100",

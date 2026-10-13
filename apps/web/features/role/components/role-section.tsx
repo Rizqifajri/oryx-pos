@@ -41,8 +41,7 @@ export function RoleSection({ tenantId }: RoleSectionProps = {}) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold">Roles</h2>
+      <div className="flex items-center justify-end">
         {canManage && (
           <Button size="sm" onClick={openAdd}>
             <Plus />
@@ -57,6 +56,7 @@ export function RoleSection({ tenantId }: RoleSectionProps = {}) {
             <tr className="border-b bg-muted/50">
               <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Name</th>
               <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Scope</th>
+              <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Permissions</th>
               <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Created</th>
               {canManage && (
                 <th className="px-4 py-2.5 text-right font-medium text-muted-foreground">Actions</th>
@@ -69,6 +69,7 @@ export function RoleSection({ tenantId }: RoleSectionProps = {}) {
                 <tr key={i} className="border-b last:border-0">
                   <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
                   <td className="px-4 py-3"><Skeleton className="h-5 w-16 rounded-full" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
                   <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
                   {canManage && (
                     <td className="px-4 py-3 text-right"><Skeleton className="ml-auto h-7 w-16" /></td>
@@ -78,7 +79,7 @@ export function RoleSection({ tenantId }: RoleSectionProps = {}) {
 
             {!isLoading && isError && (
               <tr>
-                <td colSpan={canManage ? 4 : 3} className="px-4 py-8 text-center">
+                <td colSpan={canManage ? 5 : 4} className="px-4 py-8 text-center">
                   <p className="text-sm font-medium text-destructive">
                     {apiError?.statusCode === 403
                       ? "You don't have permission to view roles."
@@ -90,7 +91,7 @@ export function RoleSection({ tenantId }: RoleSectionProps = {}) {
 
             {!isLoading && !isError && roles.length === 0 && (
               <tr>
-                <td colSpan={canManage ? 4 : 3} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={canManage ? 5 : 4} className="px-4 py-8 text-center text-muted-foreground">
                   No roles found.
                 </td>
               </tr>
@@ -108,6 +109,9 @@ export function RoleSection({ tenantId }: RoleSectionProps = {}) {
                   }>
                     {role.scope === "GLOBAL" ? "Global" : "Tenant"}
                   </span>
+                </td>
+                <td className="px-4 py-3 text-muted-foreground text-xs">
+                  {role.permissions?.length ?? 0} granted
                 </td>
                 <td className="px-4 py-3 text-muted-foreground text-xs">
                   {new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(new Date(role.createdAt))}

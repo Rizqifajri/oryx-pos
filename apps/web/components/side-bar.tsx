@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { LucideIcon } from "lucide-react"
@@ -20,11 +20,10 @@ import {
   Wallet,
 } from "lucide-react"
 
-import { getStoredUser, useLogout } from "@/features/auth/hooks/use-auth"
+import { useLogout } from "@/features/auth/hooks/use-auth"
 import { useMe } from "@/features/auth/hooks/use-me"
 import { useUserPermissions } from "@/features/auth/hooks/use-permissions"
 import { useOrdersAttentionCount } from "@/features/order/hooks/use-orders"
-import { filterPermission } from "@/lib/filter-permission"
 import { PERMISSIONS, type Permission } from "@/constants/permissions"
 import { ConfirmationModal } from "@/components/confirmation-modals"
 import {
@@ -58,6 +57,8 @@ interface NavGroup {
   items: NavItem[]
 }
 
+// Each item lists what the page's own API calls require, so a role that can
+// open the page always sees the link, and never the other way round.
 const navGroups: NavGroup[] = [
   {
     label: "Overview",
@@ -70,30 +71,30 @@ const navGroups: NavGroup[] = [
     scopes: ["TENANT"],
     items: [
       // Ordered along a service: take orders → run the floor → cook → get paid.
-      { title: "POS Cashier", href: "/pos", icon: Monitor, permissions: [PERMISSIONS.ORDER_MANAGE] },
-      { title: "Tables", href: "/tables", icon: LayoutGrid, permissions: [PERMISSIONS.TABLE_MANAGE] },
-      { title: "Orders", href: "/order", icon: ShoppingCart, permissions: [PERMISSIONS.ORDER_MANAGE] },
+      { title: "POS Cashier", href: "/pos", icon: Monitor, permissions: [PERMISSIONS.ORDER_CREATE, PERMISSIONS.ORDER_MANAGE] },
+      { title: "Tables", href: "/tables", icon: LayoutGrid, permissions: [PERMISSIONS.TABLE_LIST] },
+      { title: "Orders", href: "/order", icon: ShoppingCart, permissions: [PERMISSIONS.ORDER_LIST] },
       { title: "Payments", href: "/payments", icon: Wallet, permissions: [PERMISSIONS.TRANSACTION_LIST] },
-      { title: "Menu", href: "/menu", icon: BookOpen, permissions: [PERMISSIONS.MENU_MANAGE] },
-      { title: "Inventory", href: "/inventory", icon: Package, permissions: [PERMISSIONS.MENU_MANAGE] },
+      { title: "Menu", href: "/menu", icon: BookOpen, permissions: [PERMISSIONS.MENU_LIST] },
+      { title: "Inventory", href: "/inventory", icon: Package, permissions: [PERMISSIONS.MENU_LIST] },
     ],
   },
   {
     label: "Team Management",
     scopes: ["TENANT"],
     items: [
-      { title: "Users", href: "/users", icon: Users, permissions: [PERMISSIONS.USER_MANAGE] },
-      { title: "Roles", href: "/roles", icon: ShieldCheck, permissions: [PERMISSIONS.ROLE_MANAGE] },
+      { title: "Users", href: "/users", icon: Users, permissions: [PERMISSIONS.USER_LIST] },
+      { title: "Roles", href: "/roles", icon: ShieldCheck, permissions: [PERMISSIONS.ROLE_LIST] },
     ],
   },
   {
     label: "Administration",
     scopes: ["GLOBAL"],
     items: [
-      { title: "Users", href: "/users", icon: Users, permissions: [PERMISSIONS.USER_MANAGE] },
-      { title: "Roles", href: "/roles", icon: ShieldCheck, permissions: [PERMISSIONS.ROLE_MANAGE] },
-      { title: "Permissions", href: "/permissions", icon: Lock, permissions: [PERMISSIONS.PERMISSION_MANAGE] },
-      { title: "Tenants", href: "/tenants", icon: Building2, permissions: [PERMISSIONS.TENANT_MANAGE] },
+      { title: "Users", href: "/users", icon: Users, permissions: [PERMISSIONS.USER_LIST] },
+      { title: "Roles", href: "/roles", icon: ShieldCheck, permissions: [PERMISSIONS.ROLE_LIST] },
+      { title: "Permissions", href: "/permissions", icon: Lock, permissions: [PERMISSIONS.PERMISSION_LIST] },
+      { title: "Tenants", href: "/tenants", icon: Building2, permissions: [PERMISSIONS.TENANT_LIST] },
     ],
   },
 ]
@@ -104,18 +105,10 @@ export function AppSidebar() {
   const { mutate: logout, isPending } = useLogout()
   const { permissions: userPermissions } = useUserPermissions()
   const { data: meData } = useMe()
-  const [userScope, setUserScope] = useState<"GLOBAL" | "TENANT" | null>(null)
-  const [isMounted, setIsMounted] = useState(false)
+  const userScope = meData?.scope ?? null
   const attention = useOrdersAttentionCount(
-    userScope === "TENANT" && userPermissions.includes(PERMISSIONS.ORDER_MANAGE),
+    userScope === "TENANT" && userPermissions.includes(PERMISSIONS.ORDER_LIST),
   )
-
-  // Load user scope from localStorage on mount for initial render (client-side only)
-  useEffect(() => {
-    const user = getStoredUser()
-    setUserScope(user?.scope ?? null)
-    setIsMounted(true)
-  }, [])
 
   const allowedGroups = navGroups
     .filter(
@@ -126,7 +119,7 @@ export function AppSidebar() {
     )
     .map((group) => ({
       ...group,
-      items: filterPermission(group.items, (item) => {
+      items: group.items.filter((item) => {
         if (!item.permissions?.length) return true
         return item.permissions.some((p) => userPermissions.includes(p))
       }),
@@ -201,7 +194,7 @@ export function AppSidebar() {
         <SidebarFooter>
           <SidebarMenu>
             {/* User Info Display - Simple, non-clickable */}
-            {!isMounted || !meData ? (
+            {!meData ? (
               <div className="flex items-center gap-3 px-2 py-2 mx-1 mb-1 rounded-md bg-muted/50">
                 <Skeleton className="size-8 rounded-md" />
                 <div className="flex flex-col gap-1 overflow-hidden group-data-[collapsible=icon]:hidden">
