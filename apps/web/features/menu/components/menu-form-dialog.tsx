@@ -190,6 +190,7 @@ export function MenuFormDialog({
                 disabled={isPending}
                 error={imageError}
                 onChange={setImageFile}
+                onError={setImageError}
               />
 
               <Field>

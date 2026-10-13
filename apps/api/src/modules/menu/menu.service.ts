@@ -30,13 +30,21 @@ export class MenuService {
 
   async listMenus(
     ctx: UserContext,
-    filters?: { tenantId?: string; categoryId?: string; isAvailable?: boolean },
+    filters?: {
+      tenantId?: string;
+      categoryId?: string;
+      isAvailable?: boolean;
+      search?: string;
+      page?: number;
+      limit?: number;
+    },
   ) {
     // Permission check now handled by route middleware
     const queryFilters: {
       tenantId?: string;
       categoryId?: string;
       isAvailable?: boolean;
+      search?: string;
     } = {};
 
     // For TENANT scope: always use their tenant (ignore any provided tenantId)
@@ -57,6 +65,18 @@ export class MenuService {
 
     if (filters?.isAvailable !== undefined) {
       queryFilters.isAvailable = filters.isAvailable;
+    }
+
+    if (filters?.search) {
+      queryFilters.search = filters.search;
+    }
+
+    if (filters?.page !== undefined && filters?.limit !== undefined) {
+      return await this.menuRepo.findMenusPaginated({
+        ...queryFilters,
+        page: filters.page,
+        limit: filters.limit,
+      });
     }
 
     return await this.menuRepo.findMenusByFilters(queryFilters);

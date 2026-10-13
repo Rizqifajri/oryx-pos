@@ -2,14 +2,18 @@
 
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
-import { QrCode } from "lucide-react"
+import { ChevronLeft, ChevronRight, QrCode } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { PermissionGuard } from "@/components/guards"
 import { PERMISSIONS } from "@/constants/permissions"
 
-import { useOrders, useUpdateOrderStatus, useCreateTransaction } from "../hooks/use-orders"
+import {
+  usePaginatedOrders,
+  useUpdateOrderStatus,
+  useCreateTransaction,
+} from "../hooks/use-orders"
 import { ServiceRequestsPanel } from "./service-requests-panel"
 import type { Order, OrderStatus } from "../types"
 import { formatIdr, formatDateTime } from "@/lib/format"
@@ -118,21 +122,38 @@ function CancelButton({ order }: { order: Order }) {
   return null
 }
 
+const PAGE_SIZE_OPTIONS = [5, 10, 20, 50]
+
 interface OrderSectionProps {
   tenantId?: string | null
 }
 
 export function OrderSection({ tenantId }: OrderSectionProps = {}) {
   const [activeTab, setActiveTab] = useState<OrderStatus | "ALL">("ALL")
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   
   // Build filters object conditionally
   const filters = {
     ...(tenantId ? { tenantId } : {}),
     ...(activeTab !== "ALL" ? { status: activeTab } : {}),
+    page,
+    limit: pageSize,
   }
-  const hasFilters = Object.keys(filters).length > 0
 
-  const { data: orders = [], isLoading } = useOrders(hasFilters ? filters : undefined)
+  const { data, isLoading } = usePaginatedOrders(filters)
+  const orders = data?.items ?? []
+  const pagination = data?.pagination
+
+  function handleTabChange(tab: OrderStatus | "ALL") {
+    setActiveTab(tab)
+    setPage(1)
+  }
+
+  function handlePageSizeChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    setPageSize(Number(e.target.value))
+    setPage(1)
+  }
 
   // Chime-less heads-up when a new order lands between refreshes.
   const seenIds = useRef<Set<string> | null>(null)
@@ -158,7 +179,7 @@ export function OrderSection({ tenantId }: OrderSectionProps = {}) {
         {STATUS_TABS.map((tab) => (
           <button
             key={tab.value}
-            onClick={() => setActiveTab(tab.value)}
+            onClick={() => handleTabChange(tab.value)}
             className={cn(
               "px-4 py-2 text-sm font-medium transition-colors",
               activeTab === tab.value
@@ -268,6 +289,56 @@ export function OrderSection({ tenantId }: OrderSectionProps = {}) {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {pagination && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span>Rows per page:</span>
+            <select
+              value={pageSize}
+              onChange={handlePageSizeChange}
+              className="h-8 rounded-md border border-input bg-background px-2 text-xs outline-none focus-visible:border-ring"
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+            <span className="text-xs">
+              Showing{" "}
+              {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1} -{" "}
+              {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
+              {pagination.total} orders
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs mr-2">
+              Page {pagination.page} of {pagination.totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+              disabled={pagination.page <= 1 || isLoading}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <span className="sr-only">Previous page</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onClick={() => setPage((prev) => Math.min(prev + 1, pagination.totalPages))}
+              disabled={pagination.page >= pagination.totalPages || isLoading}
+            >
+              <ChevronRight className="h-4 w-4" />
+              <span className="sr-only">Next page</span>
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

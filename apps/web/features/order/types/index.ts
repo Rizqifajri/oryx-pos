@@ -31,6 +31,20 @@ export type OrderFilters = {
   tenantId?: string
   status?: OrderStatus
   tableId?: string
+  page?: number
+  limit?: number
+}
+
+export type PaginationMeta = {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+}
+
+export type PaginatedOrders = {
+  items: Order[]
+  pagination: PaginationMeta
 }
 
 export type CreateOrderPayload = {

@@ -4,10 +4,13 @@ import { useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 
+import { toast } from "sonner"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   Field,
+  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -79,10 +82,16 @@ export function UserFormDialog({ open, onOpenChange, editTarget, filterTenantId 
       const v = values as UpdateUserValues
       update(
         { id: editTarget.id, name: v.name, email: v.email, roleId: v.roleId, password: v.password },
-        { onSuccess: () => onOpenChange(false) },
+        {
+          onSuccess: () => onOpenChange(false),
+          onError: (err) => toast.error(err.message || "Failed to update user"),
+        },
       )
     } else {
-      create(values as CreateUserValues, { onSuccess: () => onOpenChange(false) })
+      create(values as CreateUserValues, {
+        onSuccess: () => onOpenChange(false),
+        onError: (err) => toast.error(err.message || "Failed to create user"),
+      })
     }
   }
 
@@ -149,6 +158,9 @@ export function UserFormDialog({ open, onOpenChange, editTarget, filterTenantId 
                   aria-invalid={!!errors.password}
                   {...register("password")}
                 />
+                <FieldDescription className="text-xs">
+                  Must be at least 8 characters and include uppercase, lowercase, and a number.
+                </FieldDescription>
                 <FieldError errors={[errors.password]} />
               </Field>
 

@@ -6,12 +6,14 @@ import type {
   CreateMenuPayload,
   Menu,
   MenuFilters,
+  PaginatedMenus,
   UpdateMenuPayload,
 } from "../types"
 import type { CreateMenuValues, UpdateMenuValues } from "../schemas/menu"
 
 export const menuKeys = {
   all: (filters?: MenuFilters) => ["menus", filters ?? null] as const,
+  paginated: (filters?: MenuFilters) => ["menus", "paginated", filters ?? null] as const,
   byTenant: (tenantId: string, filters?: Omit<MenuFilters, "tenantId">) =>
     ["menus", "tenant", tenantId, filters ?? null] as const,
   detail: (id: string) => ["menus", id] as const,
@@ -30,6 +32,13 @@ export function useMenus(filters?: MenuFilters) {
   return useQuery({
     queryKey: menuKeys.all(filters),
     queryFn: () => api.get<Menu[]>("/menus", { params: filters }),
+  })
+}
+
+export function usePaginatedMenus(filters?: MenuFilters) {
+  return useQuery({
+    queryKey: menuKeys.paginated(filters),
+    queryFn: () => api.get<PaginatedMenus>("/menus", { params: filters }),
   })
 }
 
