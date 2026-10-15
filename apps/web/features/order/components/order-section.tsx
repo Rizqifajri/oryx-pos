@@ -12,7 +12,7 @@ import { PERMISSIONS } from "@/constants/permissions"
 import {
   usePaginatedOrders,
   useUpdateOrderStatus,
-  useCreateTransaction,
+  useAdvanceOrder,
 } from "../hooks/use-orders"
 import { ServiceRequestsPanel } from "./service-requests-panel"
 import type { Order, OrderStatus, OrderType } from "../types"
@@ -46,65 +46,23 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   CANCELED: "Canceled",
 }
 
+const STEP_LABEL = { start: "Process", serve: "Served", complete: "Order Complete" } as const
+
 function NextStatusButton({ order }: { order: Order }) {
-  const { mutateAsync: updateStatus, isPending: isUpdating } = useUpdateOrderStatus()
-  const { mutateAsync: createTransaction, isPending: isPaying } = useCreateTransaction()
-
-  const [isFinishing, setIsFinishing] = useState(false)
-
-  if (order.status === "NEW") {
-    return (
-      <PermissionGuard permissions={PERMISSIONS.ORDER_UPDATE}>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={isUpdating}
-          onClick={() => updateStatus({ id: order.id, status: "PROCESSING" })}
-        >
-          Process
-        </Button>
-      </PermissionGuard>
-    )
-  }
-  // Guest QR orders are paid once for the whole table (Tables → Settle), so
-  // finishing one only marks it served.
-  if (order.status === "PROCESSING" && order.sessionId) {
-    return (
-      <PermissionGuard permissions={PERMISSIONS.ORDER_UPDATE}>
-        <Button
-          size="sm"
-          disabled={isUpdating}
-          onClick={() => updateStatus({ id: order.id, status: "COMPLETED" })}
-        >
-          Served
-        </Button>
-      </PermissionGuard>
-    )
-  }
-  if (order.status === "PROCESSING") {
-    return (
-      <PermissionGuard permissions={PERMISSIONS.ORDER_UPDATE}>
-        <Button
-          size="sm"
-          disabled={isUpdating || isPaying || isFinishing}
-          onClick={async () => {
-            setIsFinishing(true)
-            try {
-              await updateStatus({ id: order.id, status: "COMPLETED" })
-              await createTransaction({ orderId: order.id })
-            } catch (e) {
-              console.error("Failed to complete order and transaction", e)
-            } finally {
-              setIsFinishing(false)
-            }
-          }}
-        >
-          {isFinishing ? "Processing..." : "Order Complete"}
-        </Button>
-      </PermissionGuard>
-    )
-  }
-  return null
+  const { step, advance, isPending } = useAdvanceOrder(order)
+  if (!step) return null
+  return (
+    <PermissionGuard permissions={PERMISSIONS.ORDER_UPDATE}>
+      <Button
+        size="sm"
+        variant={step === "start" ? "outline" : "default"}
+        disabled={isPending}
+        onClick={() => advance().catch((e: Error) => toast.error(e.message))}
+      >
+        {isPending && step === "complete" ? "Processing..." : STEP_LABEL[step]}
+      </Button>
+    </PermissionGuard>
+  )
 }
 
 function CancelButton({ order }: { order: Order }) {

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import type { LucideIcon } from "lucide-react"
 import {
   BookOpen,
+  ChefHat,
   Building2,
   LayoutDashboard,
   Lock,
@@ -74,6 +75,7 @@ const navGroups: NavGroup[] = [
       { title: "POS Cashier", href: "/pos", icon: Monitor, permissions: [PERMISSIONS.ORDER_CREATE, PERMISSIONS.ORDER_MANAGE] },
       { title: "Tables", href: "/tables", icon: LayoutGrid, permissions: [PERMISSIONS.TABLE_LIST] },
       { title: "Orders", href: "/order", icon: ShoppingCart, permissions: [PERMISSIONS.ORDER_LIST] },
+      { title: "Kitchen TV", href: "/kitchen", icon: ChefHat, permissions: [PERMISSIONS.ORDER_LIST] },
       { title: "Payments", href: "/payments", icon: Wallet, permissions: [PERMISSIONS.TRANSACTION_LIST] },
       { title: "Menu", href: "/menu", icon: BookOpen, permissions: [PERMISSIONS.MENU_LIST] },
       { title: "Inventory", href: "/inventory", icon: Package, permissions: [PERMISSIONS.MENU_LIST] },
