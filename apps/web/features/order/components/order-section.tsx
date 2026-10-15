@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
-import { ChevronLeft, ChevronRight, QrCode } from "lucide-react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
@@ -233,11 +233,6 @@ export function OrderSection({ tenantId }: OrderSectionProps = {}) {
               <tr key={order.id} className="border-b last:border-0 hover:bg-muted/30">
                 <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                   #{order.id.slice(-6).toUpperCase()}
-                  {order.sessionId && (
-                    <span className="ml-1.5 inline-flex items-center gap-0.5 rounded bg-muted px-1 py-0.5 font-sans text-[10px] font-medium text-foreground">
-                      <QrCode className="size-3" /> QR
-                    </span>
-                  )}
                 </td>
                 <td className="px-4 py-3 font-medium">{order.tableName ?? "—"}</td>
                 <td className="px-4 py-3">

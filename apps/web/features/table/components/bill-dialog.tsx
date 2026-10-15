@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { CheckCircle2, Minus, Plus } from "lucide-react"
+import { useState } from "react"
+import { CheckCircle2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,27 +14,12 @@ import {
 } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatIdr } from "@/lib/format"
-import {
-  assignRest,
-  bumpUnit,
-  customAmounts,
-  equalAmounts,
-  initialAssignment,
-  itemAmounts,
-  itemsPayload,
-  resizeAssignment,
-  type ItemAssignment,
-  type SplitItem,
-  type SplitMode,
-  type SplitPayload,
-} from "@/lib/split-bill"
 import { cn } from "@/lib/utils"
 import {
   useCancelSessionSplit,
   usePayShare,
   useSessionDetail,
   useSettleSession,
-  useSplitSession,
 } from "../hooks/use-table-sessions"
 import type { ActiveTableSession, SessionBill, TableSessionDetail } from "../types"
 
@@ -68,38 +53,9 @@ function MethodPicker({ value, onChange }: { value: string; onChange: (v: string
   )
 }
 
-function Segmented<T extends string>({
-  value,
-  options,
-  onChange,
-  label,
-}: {
-  value: T
-  options: { value: T; label: string }[]
-  onChange: (v: T) => void
-  label: string
-}) {
-  return (
-    <div className="grid gap-1 rounded-md bg-muted p-1" style={{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }} role="radiogroup" aria-label={label}>
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          role="radio"
-          aria-checked={value === o.value}
-          onClick={() => onChange(o.value)}
-          className={cn("rounded px-3 py-1.5 text-sm font-medium", value === o.value ? "bg-background shadow-sm" : "text-muted-foreground")}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
 /**
- * The table bill at the counter: pay in full, split it (evenly / by items /
- * custom amounts), or collect the shares of a split bill one by one.
+ * The table bill at the counter: pay in full, or collect the shares of a
+ * bill the guest already split from their phone, one by one.
  */
 export function BillDialog({
   session,
@@ -109,54 +65,26 @@ export function BillDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const { data: detail, isLoading } = useSessionDetail(session?.id ?? null)
-  const [tab, setTab] = useState<"full" | "split">("full")
-  const [resplit, setResplit] = useState(false)
   const bill = detail?.bill ?? session?.bill
 
   return (
-    <Dialog
-      open={!!session}
-      onOpenChange={(open) => {
-        if (!open) {
-          setTab("full")
-          setResplit(false)
-        }
-        onOpenChange(open)
-      }}
-    >
+    <Dialog open={!!session} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Bill · {session?.tableName}</DialogTitle>
           <DialogDescription>
             {bill ? `${formatIdr(bill.totalAmount)} incl. tax and service` : "Loading…"}
-            {bill?.splitMode && !resplit ? " · split" : ""}
+            {bill?.splitMode ? " · split" : ""}
           </DialogDescription>
         </DialogHeader>
 
         <div className="-mx-1 flex-1 overflow-y-auto px-1">
           {isLoading || !detail || !session ? (
             <Skeleton className="h-48 w-full" />
-          ) : detail.bill.splitMode && !resplit ? (
-            <SharesView session={session} detail={detail} onResplit={() => setResplit(true)} onDone={() => onOpenChange(false)} />
+          ) : detail.bill.splitMode ? (
+            <SharesView session={session} detail={detail} onDone={() => onOpenChange(false)} />
           ) : (
-            <div className="space-y-4">
-              {!resplit && (
-                <Segmented
-                  label="Payment"
-                  value={tab}
-                  onChange={setTab}
-                  options={[
-                    { value: "full", label: "Pay in full" },
-                    { value: "split", label: "Split bill" },
-                  ]}
-                />
-              )}
-              {tab === "full" && !resplit ? (
-                <FullPayment session={session} bill={detail.bill} onDone={() => onOpenChange(false)} />
-              ) : (
-                <SplitEditor detail={detail} sessionId={session.id} onDone={() => { setResplit(false); setTab("full") }} />
-              )}
-            </div>
+            <FullPayment session={session} bill={detail.bill} onDone={() => onOpenChange(false)} />
           )}
         </div>
       </DialogContent>
@@ -221,210 +149,13 @@ function FullPayment({ session, bill, onDone }: { session: ActiveTableSession; b
   )
 }
 
-function detailItems(detail: TableSessionDetail): SplitItem[] {
-  return detail.orders
-    .filter((o) => o.status !== "CANCELED")
-    .flatMap((o) => o.items.map((i) => ({ id: i.id, name: i.menuName, quantity: i.quantity, price: i.price })))
-}
-
-function SplitEditor({ detail, sessionId, onDone }: { detail: TableSessionDetail; sessionId: string; onDone: () => void }) {
-  const total = detail.bill.totalAmount
-  const items = useMemo(() => detailItems(detail), [detail])
-  const unitCount = items.reduce((s, i) => s + i.quantity, 0)
-  const split = useSplitSession()
-
-  const [mode, setMode] = useState<SplitMode>("equal")
-  const [count, setCount] = useState(2)
-  const [names, setNames] = useState<string[]>([])
-  const [assignment, setAssignment] = useState<ItemAssignment>(() => initialAssignment(items, 2))
-  const [custom, setCustom] = useState<string[]>([])
-  const [active, setActive] = useState(0)
-
-  const labels = Array.from({ length: count }, (_, i) => names[i] ?? "")
-  const shareName = (i: number) => labels[i]?.trim() || `Share ${i + 1}`
-  const customState = customAmounts(Array.from({ length: count }, (_, i) => custom[i] ?? ""), total)
-  const itemState = itemAmounts(items, assignment, count, total)
-  const amounts = mode === "equal" ? equalAmounts(total, count) : mode === "items" ? itemState.amounts : customState.cents
-  const maxCount = mode === "items" ? Math.min(10, Math.max(2, unitCount)) : 20
-
-  const problem =
-    mode === "items" && itemState.unassigned > 0
-      ? `${itemState.unassigned} item(s) not assigned to a share yet.`
-      : mode === "items" && itemState.emptyShares.some(Boolean)
-      ? "Every share needs at least one item."
-      : mode === "custom" && customState.remaining !== 0
-        ? customState.remaining > 0
-          ? `${formatIdr(customState.remaining)} still unassigned`
-          : `${formatIdr(-customState.remaining)} over the total`
-        : mode === "custom" && customState.cents.some((c) => c <= 0)
-          ? "Every share must be more than Rp 0."
-          : null
-
-  function changeCount(n: number) {
-    const next = Math.min(maxCount, Math.max(2, n))
-    setCount(next)
-    setAssignment((a) => resizeAssignment(a, next))
-    setActive((s) => Math.min(s, next - 1))
-  }
-
-  function submit() {
-    const payload: SplitPayload =
-      mode === "equal"
-        ? { mode, count }
-        : mode === "items"
-          ? itemsPayload(items, assignment, labels)
-          : { mode, shares: customState.cents.map((amount, i) => ({ label: labels[i]?.trim() || undefined, amount })) }
-    split.mutate(
-      { sessionId, payload },
-      {
-        onSuccess: () => {
-          toast.success(`Bill split into ${count} shares`)
-          onDone()
-        },
-        onError: (e) => toast.error(e.message),
-      },
-    )
-  }
-
-  return (
-    <div className="space-y-4">
-      <Segmented
-        label="Split mode"
-        value={mode}
-        onChange={(m) => {
-          setMode(m)
-          if (m === "items") changeCount(Math.min(count, Math.max(2, unitCount)))
-        }}
-        options={[
-          { value: "equal", label: "Evenly" },
-          { value: "items", label: "By items" },
-          { value: "custom", label: "Custom" },
-        ]}
-      />
-      <label className="flex items-center justify-between gap-3 text-sm">
-        <span className="font-medium">Number of shares</span>
-        <input
-          type="number"
-          min={2}
-          max={maxCount}
-          value={count}
-          onChange={(e) => changeCount(Number(e.target.value) || 2)}
-          className="h-9 w-20 rounded-md border bg-background px-2 text-right tabular-nums"
-        />
-      </label>
-
-      {mode === "items" && (
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">Pick a share, then add what that guest had.</p>
-          <div className="flex gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label="Shares">
-            {labels.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                role="tab"
-                aria-selected={active === i}
-                onClick={() => setActive(i)}
-                className={cn(
-                  "shrink-0 rounded-md border px-3 py-1.5 text-left",
-                  active === i ? "border-foreground bg-foreground text-background" : "bg-background",
-                )}
-              >
-                <span className="block max-w-28 truncate text-xs font-medium">{shareName(i)}</span>
-                <span className="block text-xs tabular-nums opacity-75">{formatIdr(amounts[i] ?? 0)}</span>
-              </button>
-            ))}
-          </div>
-          <ul className="max-h-56 divide-y overflow-y-auto rounded-md border">
-            {items.map((item) => {
-              const counts = assignment[item.id] ?? []
-              const mine = counts[active] ?? 0
-              const left = item.quantity - counts.reduce((s, n) => s + n, 0)
-              const others = counts.flatMap((n, s) => (s !== active && n ? [`${shareName(s)} ${n}`] : []))
-              const bump = (d: 1 | -1) => setAssignment((a) => ({ ...a, [item.id]: bumpUnit(counts, active, d, item.quantity) }))
-              return (
-                <li key={item.id} className="flex items-center gap-2 px-3 py-2 text-sm">
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{item.quantity}× {item.name}</span>
-                    <span className="block truncate text-xs text-muted-foreground tabular-nums">
-                      {formatIdr(item.price)}
-                      {left > 0 ? <span className="text-destructive"> · {left} left</span> : " · all assigned"}
-                      {others.length > 0 && ` · ${others.join(", ")}`}
-                    </span>
-                  </span>
-                  <div className="inline-flex items-center rounded-md border">
-                    <Button type="button" size="icon-sm" variant="ghost" aria-label={`One less ${item.name} for ${shareName(active)}`} disabled={!mine} onClick={() => bump(-1)}>
-                      <Minus />
-                    </Button>
-                    <span className="min-w-6 text-center font-medium tabular-nums" aria-live="polite">{mine}</span>
-                    <Button type="button" size="icon-sm" variant="ghost" aria-label={`One more ${item.name} for ${shareName(active)}`} disabled={!left} onClick={() => bump(1)}>
-                      <Plus />
-                    </Button>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-          {itemState.unassigned > 0 && (
-            <Button type="button" size="sm" variant="outline" onClick={() => setAssignment((a) => assignRest(a, items, active))}>
-              Give the rest ({itemState.unassigned}) to {shareName(active)}
-            </Button>
-          )}
-        </div>
-      )}
-
-      <ul className="space-y-1.5">
-        {labels.map((name, i) => (
-          <li key={i} className="flex items-center gap-2">
-            <span className="w-6 text-sm text-muted-foreground tabular-nums">{i + 1}.</span>
-            <input
-              value={name}
-              onChange={(e) => {
-                const next = [...labels]
-                next[i] = e.target.value.slice(0, 40)
-                setNames(next)
-              }}
-              placeholder={`Share ${i + 1} name (optional)`}
-              className="h-9 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm"
-            />
-            {mode === "custom" ? (
-              <input
-                inputMode="numeric"
-                value={custom[i] ?? ""}
-                onChange={(e) => {
-                  const next = Array.from({ length: count }, (_, j) => custom[j] ?? "")
-                  next[i] = e.target.value.replace(/\D/g, "")
-                  setCustom(next)
-                }}
-                placeholder="Rp"
-                aria-label={`Amount for share ${i + 1}`}
-                className="h-9 w-32 rounded-md border bg-background px-2 text-right text-sm tabular-nums"
-              />
-            ) : (
-              <span className="w-32 text-right text-sm font-medium tabular-nums">{formatIdr(amounts[i] ?? 0)}</span>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      {problem && <p role="alert" className="text-sm text-destructive">{problem}</p>}
-      <DialogFooter>
-        <Button disabled={!!problem || split.isPending} onClick={submit}>
-          {split.isPending ? "Splitting…" : `Split into ${count} shares`}
-        </Button>
-      </DialogFooter>
-    </div>
-  )
-}
-
 function SharesView({
   session,
   detail,
-  onResplit,
   onDone,
 }: {
   session: ActiveTableSession
   detail: TableSessionDetail
-  onResplit: () => void
   onDone: () => void
 }) {
   const { bill } = detail
@@ -537,9 +268,6 @@ function SharesView({
             }
           >
             Remove split
-          </Button>
-          <Button variant="outline" onClick={onResplit}>
-            Change split
           </Button>
         </DialogFooter>
       )}
