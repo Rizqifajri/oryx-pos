@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import type {
@@ -21,6 +22,7 @@ export function useOrders(filters?: OrderFilters) {
       const params = new URLSearchParams()
       if (filters?.status) params.set("status", filters.status)
       if (filters?.tableId) params.set("tableId", filters.tableId)
+      if (filters?.orderType) params.set("orderType", filters.orderType)
       const qs = params.toString()
       return api.get<Order[]>(qs ? `/orders?${qs}` : "/orders")
     },
@@ -36,6 +38,7 @@ export function usePaginatedOrders(filters?: OrderFilters) {
       const params = new URLSearchParams()
       if (filters?.status) params.set("status", filters.status)
       if (filters?.tableId) params.set("tableId", filters.tableId)
+      if (filters?.orderType) params.set("orderType", filters.orderType)
       if (filters?.page !== undefined) params.set("page", String(filters.page))
       if (filters?.limit !== undefined) params.set("limit", String(filters.limit))
       const qs = params.toString()
@@ -94,6 +97,33 @@ export function useCreateTransaction() {
   })
 }
 
+/**
+ * Moves an order one step along the kitchen flow:
+ * NEW → PROCESSING ("start"), then PROCESSING → COMPLETED. Guest QR orders
+ * are paid through the table bill, so they are only marked served; POS
+ * takeout orders also record their transaction ("complete").
+ */
+export function useAdvanceOrder(order: Order) {
+  const { mutateAsync: updateStatus } = useUpdateOrderStatus()
+  const { mutateAsync: createTransaction } = useCreateTransaction()
+  const [isPending, setIsPending] = useState(false)
+
+  const step: "start" | "serve" | "complete" | null =
+    order.status === "NEW" ? "start" : order.status === "PROCESSING" ? (order.sessionId ? "serve" : "complete") : null
+
+  async function advance() {
+    if (!step) return
+    setIsPending(true)
+    try {
+      await updateStatus({ id: order.id, status: step === "start" ? "PROCESSING" : "COMPLETED" })
+      if (step === "complete") await createTransaction({ orderId: order.id })
+    } finally {
+      setIsPending(false)
+    }
+  }
+
+  return { step, advance, isPending }
+}
 
 /**
  * Sidebar badge: new orders waiting for the kitchen plus unanswered guest

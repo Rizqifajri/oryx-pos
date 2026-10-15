@@ -12,19 +12,25 @@ import { PERMISSIONS } from "@/constants/permissions"
 import {
   usePaginatedOrders,
   useUpdateOrderStatus,
-  useCreateTransaction,
+  useAdvanceOrder,
 } from "../hooks/use-orders"
 import { ServiceRequestsPanel } from "./service-requests-panel"
-import type { Order, OrderStatus } from "../types"
+import type { Order, OrderStatus, OrderType } from "../types"
 import { formatIdr, formatDateTime } from "@/lib/format"
 
-const STATUS_TABS: { label: string; value: OrderStatus | "ALL" }[] = [
+type TabValue = OrderStatus | OrderType | "ALL"
+
+const STATUS_TABS: { label: string; value: TabValue }[] = [
   { label: "All", value: "ALL" },
   { label: "New", value: "NEW" },
   { label: "Processing", value: "PROCESSING" },
   { label: "Completed", value: "COMPLETED" },
   { label: "Canceled", value: "CANCELED" },
+  { label: "Dine In", value: "DINE_IN" },
+  { label: "Dine Out", value: "DINE_OUT" },
 ]
+
+const ORDER_TYPE_VALUES: OrderType[] = ["DINE_IN", "DINE_OUT"]
 
 const STATUS_STYLES: Record<OrderStatus, string> = {
   NEW: "bg-yellow-50 text-yellow-700 ring-yellow-600/20",
@@ -40,65 +46,23 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   CANCELED: "Canceled",
 }
 
+const STEP_LABEL = { start: "Process", serve: "Served", complete: "Order Complete" } as const
+
 function NextStatusButton({ order }: { order: Order }) {
-  const { mutateAsync: updateStatus, isPending: isUpdating } = useUpdateOrderStatus()
-  const { mutateAsync: createTransaction, isPending: isPaying } = useCreateTransaction()
-
-  const [isFinishing, setIsFinishing] = useState(false)
-
-  if (order.status === "NEW") {
-    return (
-      <PermissionGuard permissions={PERMISSIONS.ORDER_UPDATE}>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={isUpdating}
-          onClick={() => updateStatus({ id: order.id, status: "PROCESSING" })}
-        >
-          Process
-        </Button>
-      </PermissionGuard>
-    )
-  }
-  // Guest QR orders are paid once for the whole table (Tables → Settle), so
-  // finishing one only marks it served.
-  if (order.status === "PROCESSING" && order.sessionId) {
-    return (
-      <PermissionGuard permissions={PERMISSIONS.ORDER_UPDATE}>
-        <Button
-          size="sm"
-          disabled={isUpdating}
-          onClick={() => updateStatus({ id: order.id, status: "COMPLETED" })}
-        >
-          Served
-        </Button>
-      </PermissionGuard>
-    )
-  }
-  if (order.status === "PROCESSING") {
-    return (
-      <PermissionGuard permissions={PERMISSIONS.ORDER_UPDATE}>
-        <Button
-          size="sm"
-          disabled={isUpdating || isPaying || isFinishing}
-          onClick={async () => {
-            setIsFinishing(true)
-            try {
-              await updateStatus({ id: order.id, status: "COMPLETED" })
-              await createTransaction({ orderId: order.id })
-            } catch (e) {
-              console.error("Failed to complete order and transaction", e)
-            } finally {
-              setIsFinishing(false)
-            }
-          }}
-        >
-          {isFinishing ? "Processing..." : "Order Complete"}
-        </Button>
-      </PermissionGuard>
-    )
-  }
-  return null
+  const { step, advance, isPending } = useAdvanceOrder(order)
+  if (!step) return null
+  return (
+    <PermissionGuard permissions={PERMISSIONS.ORDER_UPDATE}>
+      <Button
+        size="sm"
+        variant={step === "start" ? "outline" : "default"}
+        disabled={isPending}
+        onClick={() => advance().catch((e: Error) => toast.error(e.message))}
+      >
+        {isPending && step === "complete" ? "Processing..." : STEP_LABEL[step]}
+      </Button>
+    </PermissionGuard>
+  )
 }
 
 function CancelButton({ order }: { order: Order }) {
@@ -129,14 +93,17 @@ interface OrderSectionProps {
 }
 
 export function OrderSection({ tenantId }: OrderSectionProps = {}) {
-  const [activeTab, setActiveTab] = useState<OrderStatus | "ALL">("ALL")
+  const [activeTab, setActiveTab] = useState<TabValue>("ALL")
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
-  
+
+  const isOrderType = (v: TabValue): v is OrderType => (ORDER_TYPE_VALUES as TabValue[]).includes(v)
+
   // Build filters object conditionally
   const filters = {
     ...(tenantId ? { tenantId } : {}),
-    ...(activeTab !== "ALL" ? { status: activeTab } : {}),
+    ...(isOrderType(activeTab) ? { orderType: activeTab } : {}),
+    ...(activeTab !== "ALL" && !isOrderType(activeTab) ? { status: activeTab } : {}),
     page,
     limit: pageSize,
   }
@@ -145,7 +112,7 @@ export function OrderSection({ tenantId }: OrderSectionProps = {}) {
   const orders = data?.items ?? []
   const pagination = data?.pagination
 
-  function handleTabChange(tab: OrderStatus | "ALL") {
+  function handleTabChange(tab: TabValue) {
     setActiveTab(tab)
     setPage(1)
   }
