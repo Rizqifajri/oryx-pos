@@ -7,9 +7,15 @@ import {
   orders,
   tables,
 } from "@dio-sys-be/db/schema";
-import { and, count, desc, eq, inArray } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { DRIZZLE } from "../../database/database.module";
-import type { OrderItemInput, OrderStatus } from "./order.schema";
+import type { OrderItemInput, OrderStatus, OrderType } from "./order.schema";
+
+function orderTypeCondition(orderType?: OrderType) {
+  if (orderType === "DINE_IN") return isNotNull(orders.tableId);
+  if (orderType === "DINE_OUT") return isNull(orders.tableId);
+  return undefined;
+}
 
 type OrderRow = typeof orders.$inferSelect;
 type OrderItemRow = {
@@ -95,7 +101,7 @@ export class OrderRepository {
 
   async findOrdersByTenantId(
     tenantId: string,
-    filters?: { status?: OrderStatus; tableId?: string },
+    filters?: { status?: OrderStatus; tableId?: string; orderType?: OrderType },
   ) {
     const conditions = [eq(orders.tenantId, tenantId)];
 
@@ -104,6 +110,10 @@ export class OrderRepository {
     }
     if (filters?.tableId) {
       conditions.push(eq(orders.tableId, filters.tableId));
+    }
+    const typeCondition = orderTypeCondition(filters?.orderType);
+    if (typeCondition) {
+      conditions.push(typeCondition);
     }
 
     const orderList = await this.db
@@ -134,6 +144,7 @@ export class OrderRepository {
     tenantId?: string;
     status?: OrderStatus;
     tableId?: string;
+    orderType?: OrderType;
     page: number;
     limit: number;
   }) {
@@ -147,6 +158,10 @@ export class OrderRepository {
     }
     if (filters.tableId) {
       conditions.push(eq(orders.tableId, filters.tableId));
+    }
+    const typeCondition = orderTypeCondition(filters.orderType);
+    if (typeCondition) {
+      conditions.push(typeCondition);
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

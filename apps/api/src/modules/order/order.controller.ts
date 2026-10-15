@@ -16,6 +16,7 @@ import {
   type CreateOrderInput,
   createOrderSchema,
   type OrderStatus,
+  type OrderType,
   type UpdateOrderStatusInput,
   updateOrderStatusSchema,
 } from "./order.schema";
@@ -34,6 +35,7 @@ export class OrderController {
     @Query("tenantId") tenantId?: string,
     @Query("status") status?: string,
     @Query("tableId") tableId?: string,
+    @Query("orderType") orderType?: string,
     @Query("page") page?: string,
     @Query("limit") limit?: string,
   ) {
@@ -41,6 +43,7 @@ export class OrderController {
       tenantId?: string;
       status?: OrderStatus;
       tableId?: string;
+      orderType?: OrderType;
       page?: number;
       limit?: number;
     } = {};
@@ -60,6 +63,10 @@ export class OrderController {
 
     if (tableId && typeof tableId === "string") {
       filters.tableId = tableId;
+    }
+
+    if (orderType === "DINE_IN" || orderType === "DINE_OUT") {
+      filters.orderType = orderType;
     }
 
     if (page !== undefined || limit !== undefined) {

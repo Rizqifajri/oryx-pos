@@ -15,16 +15,22 @@ import {
   useCreateTransaction,
 } from "../hooks/use-orders"
 import { ServiceRequestsPanel } from "./service-requests-panel"
-import type { Order, OrderStatus } from "../types"
+import type { Order, OrderStatus, OrderType } from "../types"
 import { formatIdr, formatDateTime } from "@/lib/format"
 
-const STATUS_TABS: { label: string; value: OrderStatus | "ALL" }[] = [
+type TabValue = OrderStatus | OrderType | "ALL"
+
+const STATUS_TABS: { label: string; value: TabValue }[] = [
   { label: "All", value: "ALL" },
   { label: "New", value: "NEW" },
   { label: "Processing", value: "PROCESSING" },
   { label: "Completed", value: "COMPLETED" },
   { label: "Canceled", value: "CANCELED" },
+  { label: "Dine In", value: "DINE_IN" },
+  { label: "Dine Out", value: "DINE_OUT" },
 ]
+
+const ORDER_TYPE_VALUES: OrderType[] = ["DINE_IN", "DINE_OUT"]
 
 const STATUS_STYLES: Record<OrderStatus, string> = {
   NEW: "bg-yellow-50 text-yellow-700 ring-yellow-600/20",
@@ -129,14 +135,17 @@ interface OrderSectionProps {
 }
 
 export function OrderSection({ tenantId }: OrderSectionProps = {}) {
-  const [activeTab, setActiveTab] = useState<OrderStatus | "ALL">("ALL")
+  const [activeTab, setActiveTab] = useState<TabValue>("ALL")
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
-  
+
+  const isOrderType = (v: TabValue): v is OrderType => (ORDER_TYPE_VALUES as TabValue[]).includes(v)
+
   // Build filters object conditionally
   const filters = {
     ...(tenantId ? { tenantId } : {}),
-    ...(activeTab !== "ALL" ? { status: activeTab } : {}),
+    ...(isOrderType(activeTab) ? { orderType: activeTab } : {}),
+    ...(activeTab !== "ALL" && !isOrderType(activeTab) ? { status: activeTab } : {}),
     page,
     limit: pageSize,
   }
@@ -145,7 +154,7 @@ export function OrderSection({ tenantId }: OrderSectionProps = {}) {
   const orders = data?.items ?? []
   const pagination = data?.pagination
 
-  function handleTabChange(tab: OrderStatus | "ALL") {
+  function handleTabChange(tab: TabValue) {
     setActiveTab(tab)
     setPage(1)
   }

@@ -1,5 +1,8 @@
 export type OrderStatus = "NEW" | "PROCESSING" | "COMPLETED" | "CANCELED"
 
+/** Not stored — derived from whether the order has a table (dine-in) or not (dine-out/takeaway). */
+export type OrderType = "DINE_IN" | "DINE_OUT"
+
 export type OrderItem = {
   id: string
   menuId: string
@@ -31,6 +34,7 @@ export type OrderFilters = {
   tenantId?: string
   status?: OrderStatus
   tableId?: string
+  orderType?: OrderType
   page?: number
   limit?: number
 }

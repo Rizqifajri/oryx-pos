@@ -21,6 +21,7 @@ export function useOrders(filters?: OrderFilters) {
       const params = new URLSearchParams()
       if (filters?.status) params.set("status", filters.status)
       if (filters?.tableId) params.set("tableId", filters.tableId)
+      if (filters?.orderType) params.set("orderType", filters.orderType)
       const qs = params.toString()
       return api.get<Order[]>(qs ? `/orders?${qs}` : "/orders")
     },
@@ -36,6 +37,7 @@ export function usePaginatedOrders(filters?: OrderFilters) {
       const params = new URLSearchParams()
       if (filters?.status) params.set("status", filters.status)
       if (filters?.tableId) params.set("tableId", filters.tableId)
+      if (filters?.orderType) params.set("orderType", filters.orderType)
       if (filters?.page !== undefined) params.set("page", String(filters.page))
       if (filters?.limit !== undefined) params.set("limit", String(filters.limit))
       const qs = params.toString()

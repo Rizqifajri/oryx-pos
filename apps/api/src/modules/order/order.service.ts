@@ -13,6 +13,7 @@ import { OrderRepository } from "./order.repository";
 import type {
   CreateOrderInput,
   OrderStatus,
+  OrderType,
   UpdateOrderStatusInput,
 } from "./order.schema";
 
@@ -41,6 +42,7 @@ export class OrderService {
       tenantId?: string;
       status?: OrderStatus;
       tableId?: string;
+      orderType?: OrderType;
       page?: number;
       limit?: number;
     },
@@ -61,6 +63,7 @@ export class OrderService {
         tenantId: tenantIdToUse,
         status: filters.status,
         tableId: filters.tableId,
+        orderType: filters.orderType,
         page: filters.page,
         limit: filters.limit,
       });

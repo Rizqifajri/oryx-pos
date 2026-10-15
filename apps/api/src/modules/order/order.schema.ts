@@ -7,6 +7,9 @@ export const orderStatusEnum = z.enum([
   "CANCELED",
 ]);
 
+// Not a stored column — derived from whether the order has a tableId.
+export const orderTypeEnum = z.enum(["DINE_IN", "DINE_OUT"]);
+
 export const orderItemInputSchema = z.object({
   menuId: z.string().uuid(),
   quantity: z.number().int().min(1),
@@ -27,6 +30,7 @@ export const updateOrderStatusSchema = z.object({
 });
 
 export type OrderStatus = z.infer<typeof orderStatusEnum>;
+export type OrderType = z.infer<typeof orderTypeEnum>;
 export type OrderItemInput = z.infer<typeof orderItemInputSchema>;
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;
