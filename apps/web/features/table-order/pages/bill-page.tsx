@@ -117,7 +117,6 @@ function RoundCard({ order, index, canCancel }: { order: SessionOrder; index: nu
           </li>
         ))}
       </ul>
-      {order.note && <p className="mt-2 text-[12px] text-pm-muted">Catatan: {order.note}</p>}
 
       {order.status === "NEW" && canCancel && (
         <div className="mt-3 flex items-center justify-end gap-2 border-t border-pm-line pt-2">

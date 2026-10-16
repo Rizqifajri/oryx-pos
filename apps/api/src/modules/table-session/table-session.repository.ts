@@ -149,7 +149,6 @@ export class TableSessionRepository {
         sessionId: orders.sessionId,
         status: orders.status,
         totalPrice: orders.totalPrice,
-        note: orders.note,
         submittedAt: orders.submittedAt,
         transactionId: transactions.id,
       })
@@ -201,7 +200,6 @@ export class TableSessionRepository {
       tableId: string;
       sessionId: string;
       totalPrice: number;
-      note: string | null;
       idempotencyKey: string;
     },
     items: { menuId: string; quantity: number; price: number; note: string | null }[],

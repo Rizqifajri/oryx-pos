@@ -222,9 +222,6 @@ export function OrderSection({ tenantId }: OrderSectionProps = {}) {
                       {order.items.length} {order.items.length === 1 ? "item" : "items"}
                     </>
                   )}
-                  {order.note && (
-                    <p className="mt-1 max-w-48 text-xs italic">Note: {order.note}</p>
-                  )}
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums font-medium">
                   {formatIdr(order.totalPrice)}

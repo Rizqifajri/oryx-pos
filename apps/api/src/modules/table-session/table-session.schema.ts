@@ -14,7 +14,6 @@ export const createSessionOrderSchema = z.object({
     )
     .min(1)
     .max(50),
-  note: z.string().trim().max(300).optional(),
 });
 
 export const lockBillSchema = z.object({

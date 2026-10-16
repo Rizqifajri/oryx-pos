@@ -52,7 +52,6 @@ export type SessionOrder = {
   sessionId: string
   status: OrderStatus
   totalPrice: number
-  note: string | null
   submittedAt: string
   isPaid: boolean
   items: SessionOrderItem[]

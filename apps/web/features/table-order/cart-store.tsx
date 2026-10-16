@@ -15,14 +15,14 @@ export type GuestCartLine = {
   note: string
 }
 
-type CartState = { lines: GuestCartLine[]; note: string; hydrated: boolean }
+type CartState = { lines: GuestCartLine[]; hydrated: boolean }
 
 type Action =
-  | { type: "hydrate"; state: Pick<CartState, "lines" | "note"> }
+  | { type: "hydrate"; state: Pick<CartState, "lines"> }
   | { type: "add"; item: MenuItem; quantity: number; note: string }
   | { type: "setQuantity"; lineId: string; quantity: number }
+  | { type: "setLineNote"; lineId: string; note: string }
   | { type: "decrementItem"; menuId: string }
-  | { type: "setNote"; note: string }
   | { type: "repriceItem"; menuId: string; unitPrice: number }
   | { type: "removeItem"; menuId: string }
   | { type: "clear" }
@@ -77,6 +77,24 @@ function reducer(state: CartState, action: Action): CartState {
                   : l,
               ),
       }
+    case "setLineNote": {
+      const line = state.lines.find((l) => l.lineId === action.lineId)
+      if (!line) return state
+      const note = action.note.trim()
+      const lineId = makeLineId(line.menuId, note)
+      if (lineId === line.lineId) return state
+      const twin = state.lines.find((l) => l.lineId === lineId)
+      // Same item with the same note already in the cart: merge into that line.
+      if (twin) {
+        return {
+          ...state,
+          lines: state.lines
+            .filter((l) => l.lineId !== line.lineId)
+            .map((l) => (l === twin ? { ...l, quantity: Math.min(MAX_QTY, l.quantity + line.quantity) } : l)),
+        }
+      }
+      return { ...state, lines: state.lines.map((l) => (l === line ? { ...l, lineId, note } : l)) }
+    }
     case "decrementItem": {
       const line = [...state.lines].reverse().find((l) => l.menuId === action.menuId)
       if (!line) return state
@@ -86,8 +104,6 @@ function reducer(state: CartState, action: Action): CartState {
         quantity: line.quantity - 1,
       })
     }
-    case "setNote":
-      return { ...state, note: action.note }
     case "repriceItem":
       return {
         ...state,
@@ -98,23 +114,22 @@ function reducer(state: CartState, action: Action): CartState {
     case "removeItem":
       return { ...state, lines: state.lines.filter((l) => l.menuId !== action.menuId) }
     case "clear":
-      return { ...state, lines: [], note: "" }
+      return { ...state, lines: [] }
   }
 }
 
 type GuestCartValue = {
   lines: GuestCartLine[]
-  note: string
   itemCount: number
   subtotal: number
   hydrated: boolean
   add: (item: MenuItem, quantity?: number, note?: string) => void
   setQuantity: (lineId: string, quantity: number) => void
+  setLineNote: (lineId: string, note: string) => void
   /** Total quantity of an item across all its lines (for the card stepper). */
   quantityOf: (menuId: string) => number
   /** Card stepper "−": takes one off the item's most recently added line. */
   decrementItem: (menuId: string) => void
-  setNote: (note: string) => void
   repriceItem: (menuId: string, unitPrice: number) => void
   removeItem: (menuId: string) => void
   clear: () => void
@@ -135,10 +150,10 @@ export function GuestCartProvider({
   children: React.ReactNode
 }) {
   const storageKey = `dio_table_cart:${tableToken}`
-  const [state, dispatch] = useReducer(reducer, { lines: [], note: "", hydrated: false })
+  const [state, dispatch] = useReducer(reducer, { lines: [], hydrated: false })
 
   useEffect(() => {
-    let stored: Pick<CartState, "lines" | "note"> = { lines: [], note: "" }
+    let stored: Pick<CartState, "lines"> = { lines: [] }
     try {
       const raw = sessionStorage.getItem(storageKey)
       if (raw) stored = JSON.parse(raw)
@@ -151,7 +166,7 @@ export function GuestCartProvider({
   useEffect(() => {
     if (!state.hydrated) return
     try {
-      sessionStorage.setItem(storageKey, JSON.stringify({ lines: state.lines, note: state.note }))
+      sessionStorage.setItem(storageKey, JSON.stringify({ lines: state.lines }))
     } catch {
       // Storage full or disabled: the cart still works for this page view.
     }
@@ -166,15 +181,14 @@ export function GuestCartProvider({
   const value = useMemo<GuestCartValue>(
     () => ({
       lines: state.lines,
-      note: state.note,
       hydrated: state.hydrated,
       itemCount: state.lines.reduce((sum, l) => sum + l.quantity, 0),
       subtotal: state.lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0),
       add: (item, quantity = 1, note = "") => dispatch({ type: "add", item, quantity, note }),
       setQuantity: (lineId, quantity) => dispatch({ type: "setQuantity", lineId, quantity }),
+      setLineNote: (lineId, note) => dispatch({ type: "setLineNote", lineId, note }),
       quantityOf,
       decrementItem: (menuId) => dispatch({ type: "decrementItem", menuId }),
-      setNote: (note) => dispatch({ type: "setNote", note }),
       repriceItem: (menuId, unitPrice) => dispatch({ type: "repriceItem", menuId, unitPrice }),
       removeItem: (menuId) => dispatch({ type: "removeItem", menuId }),
       clear: () => dispatch({ type: "clear" }),

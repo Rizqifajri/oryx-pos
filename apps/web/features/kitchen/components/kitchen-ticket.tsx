@@ -93,12 +93,6 @@ export function KitchenTicket({
         })}
       </ul>
 
-      {order.note && (
-        <p className="border-t border-border bg-warning/15 px-4 py-2.5 text-base">
-          <span className="font-semibold">Note:</span> {order.note}
-        </p>
-      )}
-
       <PermissionGuard permissions={PERMISSIONS.ORDER_UPDATE}>
         <AdvanceButton order={order} settings={settings} />
       </PermissionGuard>

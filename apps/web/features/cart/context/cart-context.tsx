@@ -8,6 +8,7 @@ interface CartContextValue {
   addItem: (item: Omit<CartItem, "quantity">) => void
   removeItem: (menuId: string) => void
   updateQuantity: (menuId: string, quantity: number) => void
+  updateNote: (menuId: string, note: string) => void
   clear: () => void
   total: number
   itemCount: number
@@ -57,6 +58,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  const updateNote = useCallback((menuId: string, note: string) => {
+    setItems((prev) => prev.map((i) => (i.menuId === menuId ? { ...i, note } : i)))
+  }, [])
+
   const clear = useCallback(() => {
     setItems([])
     localStorage.removeItem(STORAGE_KEY)
@@ -67,7 +72,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CartContext.Provider
-      value={{ items, addItem, removeItem, updateQuantity, clear, total, itemCount }}
+      value={{ items, addItem, removeItem, updateQuantity, updateNote, clear, total, itemCount }}
     >
       {children}
     </CartContext.Provider>

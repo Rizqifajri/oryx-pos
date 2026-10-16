@@ -74,7 +74,12 @@ function ItemDetailBody({
         </div>
 
         <label className="block">
-          <span className="text-[12px] leading-[16px] font-semibold">Catatan untuk dapur</span>
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="text-[12px] leading-[16px] font-semibold">
+              Catatan untuk dapur <span className="font-normal text-pm-muted">(opsional)</span>
+            </span>
+            <span className="text-[11px] text-pm-subtle tabular-nums">{note.length}/200</span>
+          </span>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value.slice(0, 200))}
@@ -83,6 +88,9 @@ function ItemDetailBody({
             placeholder="Contoh: tidak pedas, tanpa bawang"
             className="mt-1.5 w-full resize-none rounded-[12px] bg-pm-surface-muted px-3 py-2 text-[13px] leading-[18px] outline-none placeholder:text-pm-subtle"
           />
+          <span className="mt-1 block text-[11px] leading-[15px] text-pm-muted">
+            Berlaku untuk semua porsi yang ditambahkan. Perlu catatan berbeda? Tambahkan lagi secara terpisah.
+          </span>
         </label>
       </div>
 

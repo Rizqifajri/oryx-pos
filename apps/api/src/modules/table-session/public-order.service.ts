@@ -227,7 +227,6 @@ export class PublicOrderService {
             tableId: session.tableId,
             sessionId: session.id,
             totalPrice,
-            note: input.note || null,
             idempotencyKey,
           },
           items,
