@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { AppError } from "../../common/errors/app-error";
-import { getPresignedUploadUrl } from "../../common/lib/r2";
+import { getPresignedUploadUrl, signImageUrl } from "../../common/lib/r2";
 import type { UserContext } from "../../common/types/user-context";
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -23,13 +23,14 @@ export class UploadService {
   /**
    * Validates the requested image metadata and returns a presigned PUT URL so the
    * client can upload straight to R2 (the file never passes through this server),
-   * along with the public URL the object will be served from once uploaded. The
-   * client MUST PUT with the same Content-Type reported here.
+   * plus a presigned GET URL for previewing it. The menu is saved with that URL;
+   * the menu service reduces it back to the object key. The client MUST PUT
+   * with the same Content-Type reported here.
    */
   async createMenuImageUpload(
     ctx: UserContext,
     input: PresignInput,
-  ): Promise<{ uploadUrl: string; publicUrl: string }> {
+  ): Promise<{ uploadUrl: string; imageUrl: string }> {
     const ext = EXT_BY_TYPE[input.contentType];
     if (!ext) {
       throw new AppError("Only JPEG, PNG, WebP, or GIF images are allowed", 400);
@@ -46,6 +47,7 @@ export class UploadService {
     const scope = ctx.tenantId ?? "global";
     const key = `menus/${scope}/${randomUUID()}.${ext}`;
 
-    return getPresignedUploadUrl(key, input.contentType);
+    const uploadUrl = await getPresignedUploadUrl(key, input.contentType);
+    return { uploadUrl, imageUrl: (await signImageUrl(key)) ?? key };
   }
 }

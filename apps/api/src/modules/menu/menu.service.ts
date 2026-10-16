@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { AppError } from "../../common/errors/app-error";
 import { SessionEventsService } from "../../common/realtime/session-events.service";
-import { deleteFromR2ByUrl } from "../../common/lib/r2";
+import { deleteFromR2, toImageKey } from "../../common/lib/r2";
 import type { UserContext } from "../../common/types/user-context";
 import { assertTenantMatch } from "../../common/utils/assert-permission";
 import { CategoryRepository } from "../category/category.repository";
@@ -12,6 +12,9 @@ import type {
   CreateMenuInput,
   UpdateMenuInput,
 } from "./menu.schema";
+
+/** Our R2 images are stored as object keys; external URLs are kept as-is. */
+const toStoredImage = (url: string) => toImageKey(url) ?? url;
 
 @Injectable()
 export class MenuService {
@@ -163,7 +166,7 @@ export class MenuService {
       name: input.name,
       description: input.description,
       price: input.price,
-      imageUrl: input.imageUrl,
+      imageUrl: toStoredImage(input.imageUrl),
       isAvailable: input.isAvailable,
       isPopular: input.isPopular,
       badge: input.badge ?? null,
@@ -197,16 +200,18 @@ export class MenuService {
       }
     }
 
-    const updated = await this.menuRepo.updateMenu(id, input);
+    const imageUrl =
+      input.imageUrl !== undefined ? toStoredImage(input.imageUrl) : undefined;
+    const updated = await this.menuRepo.updateMenu(id, { ...input, imageUrl });
 
     // If the image was replaced, clean up the previous object in R2.
     // Best-effort: failures here are logged, not thrown.
     if (
-      input.imageUrl !== undefined &&
+      imageUrl !== undefined &&
       menu.imageUrl &&
-      menu.imageUrl !== input.imageUrl
+      toStoredImage(menu.imageUrl) !== imageUrl
     ) {
-      await deleteFromR2ByUrl(menu.imageUrl);
+      await deleteFromR2(menu.imageUrl);
     }
 
     return this.notify(menu.tenantId, updated);
