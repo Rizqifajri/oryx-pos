@@ -1,8 +1,9 @@
 import { Module } from "@nestjs/common";
-import { APP_GUARD } from "@nestjs/core";
+import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { AppController } from "./app.controller";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "./common/guards/permissions.guard";
+import { SignImageUrlsInterceptor } from "./common/interceptors/sign-image-urls.interceptor";
 import { DatabaseModule } from "./database/database.module";
 import { RepositoriesModule } from "./database/repositories.module";
 import { AuthModule } from "./modules/auth/auth.module";
@@ -49,6 +50,7 @@ import { UserModule } from "./modules/user/user.module";
     // `authenticate -> requirePermission(...)`.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
+    { provide: APP_INTERCEPTOR, useClass: SignImageUrlsInterceptor },
   ],
 })
 export class AppModule {}

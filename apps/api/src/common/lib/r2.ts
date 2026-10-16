@@ -1,5 +1,6 @@
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   PutBucketCorsCommand,
   PutObjectCommand,
   S3Client,
@@ -12,13 +13,18 @@ import { AppError } from "../errors/app-error";
  * Cloudflare R2 storage (S3-compatible). All configuration comes from env vars;
  * if any are missing the upload endpoints fail with a clear 503 instead of the
  * whole server refusing to boot.
+ *
+ * Images are stored as object keys (e.g. `menus/<tenant>/<id>.jpg`) and served
+ * as presigned GET URLs on `<account>.r2.cloudflarestorage.com`, never through
+ * the public `*.r2.dev` domain, which some DNS filters block.
  */
 interface R2Config {
   accountId: string;
   accessKeyId: string;
   secretAccessKey: string;
   bucket: string;
-  publicUrl: string;
+  /** Legacy public base (r2.dev or custom domain); only used to read old URLs. */
+  publicUrl: string | null;
 }
 
 let cachedClient: S3Client | null = null;
@@ -36,8 +42,7 @@ const getConfig = (): R2Config => {
     !R2_ACCOUNT_ID ||
     !R2_ACCESS_KEY_ID ||
     !R2_SECRET_ACCESS_KEY ||
-    !R2_BUCKET_NAME ||
-    !R2_PUBLIC_URL
+    !R2_BUCKET_NAME
   ) {
     throw new AppError(
       "Image storage is not configured. Set the R2_* environment variables.",
@@ -50,7 +55,7 @@ const getConfig = (): R2Config => {
     accessKeyId: R2_ACCESS_KEY_ID,
     secretAccessKey: R2_SECRET_ACCESS_KEY,
     bucket: R2_BUCKET_NAME,
-    publicUrl: R2_PUBLIC_URL.replace(/\/+$/, ""),
+    publicUrl: R2_PUBLIC_URL ? R2_PUBLIC_URL.replace(/\/+$/, "") : null,
   };
 };
 
@@ -84,7 +89,7 @@ export const isR2Configured = (): boolean => {
 };
 
 /**
- * Uploads a buffer to R2 under `key` and returns its public URL.
+ * Uploads a buffer to R2 under `key` and returns the key to store.
  * Throws AppError(503) if storage isn't configured, AppError(502) on failure.
  */
 export const uploadToR2 = async (
@@ -110,28 +115,58 @@ export const uploadToR2 = async (
     throw new AppError("Failed to store image", 502);
   }
 
-  return `${config.publicUrl}/${key}`;
+  return key;
 };
 
 /**
- * Deletes the object stored at a public URL that this module produced (i.e. one
- * starting with the configured public base). Best-effort: a missing object or a
- * URL from a different host is ignored, and storage errors are logged but not
- * thrown, so cleanup never blocks the primary operation (e.g. deleting a menu).
+ * Turns a stored image value into its R2 object key. Accepts a bare key (what
+ * we store now), an old public URL (`*.r2.dev` or the R2_PUBLIC_URL domain), or
+ * a presigned URL we handed out (sent back unchanged when a menu is re-saved).
+ * Returns null for anything that isn't ours, e.g. an external image URL.
  */
-export const deleteFromR2ByUrl = async (url: string): Promise<void> => {
-  if (!isR2Configured()) return;
+export const toImageKey = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+  if (!/^https?:\/\//i.test(value)) return value;
+  if (!isR2Configured()) return null;
 
   const config = getConfig();
-  const base = `${config.publicUrl}/`;
-  if (!url.startsWith(base)) return;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+  const host = url.hostname;
+  let path = url.pathname.replace(/^\/+/, "");
 
-  const key = url.slice(base.length);
+  if (host.endsWith(".r2.cloudflarestorage.com")) {
+    // Path-style URLs carry the bucket as the first segment.
+    if (!host.startsWith(`${config.bucket}.`)) {
+      if (!path.startsWith(`${config.bucket}/`)) return null;
+      path = path.slice(config.bucket.length + 1);
+    }
+  } else if (
+    !host.endsWith(".r2.dev") &&
+    !(config.publicUrl && host === new URL(config.publicUrl).hostname)
+  ) {
+    return null;
+  }
+
+  return path ? decodeURIComponent(path) : null;
+};
+
+/**
+ * Deletes the object behind a stored image value. Best-effort: values that
+ * aren't ours are ignored, and storage errors are logged but not thrown, so
+ * cleanup never blocks the primary operation (e.g. replacing a menu image).
+ */
+export const deleteFromR2 = async (value: string): Promise<void> => {
+  const key = toImageKey(value);
   if (!key) return;
 
   try {
-    const client = getClient(config);
-    await client.send(
+    const config = getConfig();
+    await getClient(config).send(
       new DeleteObjectCommand({ Bucket: config.bucket, Key: key }),
     );
   } catch (err) {
@@ -139,24 +174,53 @@ export const deleteFromR2ByUrl = async (url: string): Promise<void> => {
   }
 };
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Returns a presigned GET URL for a stored image value. The signature time is
+ * pinned to the start of the current UTC day and the URL lives two days, so it
+ * stays identical (and browser-cacheable) all day and is always valid for at
+ * least 24h after it was handed out. Values that aren't ours pass through.
+ */
+export const signImageUrl = async (
+  value: string | null | undefined,
+): Promise<string | null | undefined> => {
+  const key = toImageKey(value);
+  if (!key) return value;
+
+  const config = getConfig();
+  try {
+    return await getSignedUrl(
+      getClient(config),
+      new GetObjectCommand({ Bucket: config.bucket, Key: key }),
+      {
+        expiresIn: (2 * DAY_MS) / 1000,
+        signingDate: new Date(Math.floor(Date.now() / DAY_MS) * DAY_MS),
+      },
+    );
+  } catch (err) {
+    console.error("R2 sign failed:", err);
+    return value;
+  }
+};
+
 /** How long a presigned upload URL stays valid (seconds). */
 const PRESIGN_EXPIRES_IN = 5 * 60; // 5 minutes
 
 /**
- * Generates a presigned PUT URL so the client can upload `key` directly to R2,
- * plus the public URL the object will be served from once uploaded. The client
+ * Generates a presigned PUT URL so the client can upload `key` directly to R2. The client
  * must PUT with the same `Content-Type` used to sign, or R2 rejects the request.
  * Throws AppError(503) if storage isn't configured, AppError(502) on failure.
  */
 export const getPresignedUploadUrl = async (
   key: string,
   contentType: string,
-): Promise<{ uploadUrl: string; publicUrl: string }> => {
+): Promise<string> => {
   const config = getConfig();
   const client = getClient(config);
 
   try {
-    const uploadUrl = await getSignedUrl(
+    return await getSignedUrl(
       client,
       new PutObjectCommand({
         Bucket: config.bucket,
@@ -166,8 +230,6 @@ export const getPresignedUploadUrl = async (
       }),
       { expiresIn: PRESIGN_EXPIRES_IN },
     );
-
-    return { uploadUrl, publicUrl: `${config.publicUrl}/${key}` };
   } catch (err) {
     console.error("R2 presign failed:", err);
     throw new AppError("Failed to prepare image upload", 502);

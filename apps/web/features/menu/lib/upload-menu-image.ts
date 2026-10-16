@@ -3,7 +3,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL
 /**
  * Uploads a menu image using a presigned URL: the backend hands out a short-lived
  * PUT URL for Cloudflare R2, and the browser uploads the file straight to R2.
- * The file never passes through the web server or the API. Returns the public URL.
+ * The file never passes through the web server or the API. Returns a presigned
+ * GET URL for the image (the API stores just the object key when the menu is saved).
  */
 export async function uploadMenuImage(file: File): Promise<string> {
   const token =
@@ -22,7 +23,7 @@ export async function uploadMenuImage(file: File): Promise<string> {
 
   const presignBody = (await presignRes.json().catch(() => null)) as {
     success: boolean
-    data?: { uploadUrl: string; publicUrl: string }
+    data?: { uploadUrl: string; imageUrl: string }
     message?: string
   } | null
 
@@ -30,12 +31,12 @@ export async function uploadMenuImage(file: File): Promise<string> {
     !presignRes.ok ||
     !presignBody?.success ||
     !presignBody.data?.uploadUrl ||
-    !presignBody.data?.publicUrl
+    !presignBody.data?.imageUrl
   ) {
     throw new Error(presignBody?.message ?? "Failed to prepare image upload")
   }
 
-  const { uploadUrl, publicUrl } = presignBody.data
+  const { uploadUrl, imageUrl } = presignBody.data
 
   // Content-Type must match what the backend signed, or R2 rejects the PUT.
   const uploadRes = await fetch(uploadUrl, {
@@ -48,5 +49,5 @@ export async function uploadMenuImage(file: File): Promise<string> {
     throw new Error("Failed to upload image")
   }
 
-  return publicUrl
+  return imageUrl
 }
