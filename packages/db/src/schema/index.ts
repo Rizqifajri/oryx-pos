@@ -14,3 +14,4 @@ export * from "./table-session";
 export * from "./tenant";
 export * from "./transaction";
 export * from "./user";
+export * from "./feedback";

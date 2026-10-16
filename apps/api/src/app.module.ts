@@ -21,6 +21,7 @@ import { TenantModule } from "./modules/tenant/tenant.module";
 import { TransactionModule } from "./modules/transaction/transaction.module";
 import { UploadModule } from "./modules/upload/upload.module";
 import { UserModule } from "./modules/user/user.module";
+import { FeedbackModule } from "./modules/feedback/feedback.module";
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { UserModule } from "./modules/user/user.module";
     PaymentModule,
     UploadModule,
     TableSessionModule,
+    FeedbackModule,
   ],
   controllers: [AppController],
   providers: [

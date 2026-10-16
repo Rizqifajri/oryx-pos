@@ -12,6 +12,7 @@ import { TableSessionRepository } from "../modules/table-session/table-session.r
 import { TenantRepository } from "../modules/tenant/tenant.repository";
 import { TransactionRepository } from "../modules/transaction/transaction.repository";
 import { UserRepository } from "../modules/user/user.repository";
+import { FeedbackRepository } from "../modules/feedback/feedback.repository";
 
 const repositories = [
   AuthRepository,
@@ -27,6 +28,7 @@ const repositories = [
   TenantRepository,
   TransactionRepository,
   UserRepository,
+  FeedbackRepository,
 ];
 
 /**

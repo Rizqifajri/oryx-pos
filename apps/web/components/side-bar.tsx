@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   Lock,
   LogOut,
+  MessageSquareHeart,
   Package,
   ShieldCheck,
   ShoppingCart,
@@ -79,6 +80,7 @@ const navGroups: NavGroup[] = [
       { title: "Payments", href: "/payments", icon: Wallet, permissions: [PERMISSIONS.TRANSACTION_LIST] },
       { title: "Menu", href: "/menu", icon: BookOpen, permissions: [PERMISSIONS.MENU_LIST] },
       { title: "Inventory", href: "/inventory", icon: Package, permissions: [PERMISSIONS.MENU_LIST] },
+      { title: "Feedbacks", href: "/feedbacks", icon: MessageSquareHeart },
     ],
   },
   {
