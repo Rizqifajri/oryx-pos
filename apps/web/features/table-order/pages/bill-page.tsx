@@ -17,10 +17,11 @@ import {
 import { useGuest } from "../session-context"
 import type { Bill, BillPayment, SessionOrder, SessionView } from "../types"
 import { SubPageHeader } from "../components/menu-header"
-import { OrderStatusChip } from "../components/primitives"
 import { SplitBillSheet, SplitSharesPanel } from "../components/split-bill"
 import { TAB_BAR_SPACE } from "../components/bottom-bars"
+import { OrderStatusChip } from "../components/primitives"
 import { Row } from "./cart-page"
+import { FeedbackCard } from "@/features/feedback/components/feedback-card"
 
 /** Tagihan Meja — every round at this table, the running bill and payment. */
 export function BillPage() {
@@ -83,6 +84,14 @@ function OpenBill({ view }: { view: SessionView }) {
         <>
           <Charges bill={view.bill} />
           {view.bill.splitMode ? <SplitSharesPanel view={view} /> : <PaymentPanel view={view} />}
+          {rounds.some((o) => o.status === "COMPLETED") && (
+            <FeedbackCard
+              className="mt-3"
+              orderItems={rounds
+                .filter((o) => o.status === "COMPLETED")
+                .flatMap((o) => o.items.map((i) => ({ menuId: i.menuId, menuName: i.menuName })))}
+            />
+          )}
         </>
       )}
     </>
@@ -383,6 +392,11 @@ function Receipt({ view }: { view: SessionView }) {
           </div>
         )}
       </section>
+
+      <FeedbackCard
+        className="mt-3"
+        orderItems={items.map((i) => ({ menuId: i.menuId, menuName: i.menuName }))}
+      />
 
       <p className="text-center text-[14px] font-semibold">Terima kasih! Sampai jumpa lagi.</p>
       {view.session.status === "closed" && (

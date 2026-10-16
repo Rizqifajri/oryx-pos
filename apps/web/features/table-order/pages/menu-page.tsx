@@ -159,6 +159,17 @@ export function MenuPage() {
             </Link>
           </Banner>
         )}
+        {view?.orders?.some((o) => o.status === "COMPLETED") && (
+          <div role="status" className="flex items-center justify-between gap-2 rounded-[12px] bg-primary/10 px-3 py-2.5 text-[12px] leading-[17px] text-primary border border-primary/20">
+            <span className="flex items-center gap-2">
+              <span className="text-base">😋</span>
+              <span>Makanan sudah disajikan? Berikan ulasan rasa hidangan Anda.</span>
+            </span>
+            <Link href={`${basePath}/bill`} className="shrink-0 font-bold underline underline-offset-2 hover:opacity-80">
+              Beri Ulasan
+            </Link>
+          </div>
+        )}
 
         <MenuSearch
           ref={searchRef}
