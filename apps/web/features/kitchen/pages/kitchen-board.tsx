@@ -3,20 +3,14 @@
 import { useEffect, useRef, useState } from "react"
 import type { LucideIcon } from "lucide-react"
 import Link from "next/link"
-import { ArrowLeft, Flame, Inbox, Maximize, Minimize, Moon, Sun, Volume2, VolumeX } from "lucide-react"
+import { ArrowLeft, Flame, Inbox, Maximize, Minimize, Moon, Settings, Sun, Volume2, VolumeX } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useOrders } from "@/features/order/hooks/use-orders"
 import { Toaster } from "@/components/ui/sonner"
 import type { Order } from "@/features/order/types"
-import {
-  KitchenTicket,
-  LATE_MIN,
-  URGENCY_STYLES,
-  WARN_MIN,
-  isDineIn,
-  orderTime,
-  type Urgency,
-} from "../components/kitchen-ticket"
+import { KitchenTicket, URGENCY_STYLES, isDineIn, orderTime, type Urgency } from "../components/kitchen-ticket"
+import { KitchenSettingsSheet } from "../components/kitchen-settings-sheet"
+import { useKitchenSettings } from "../hooks/use-kitchen-settings"
 
 type Filter = "all" | "dine-in" | "dine-out"
 type Theme = "light" | "dark"
@@ -76,6 +70,8 @@ function playChime(ctx: AudioContext) {
 export function KitchenBoard() {
   const now = useNow()
   const [theme, toggleTheme] = useTheme()
+  const [settings, saveSettings] = useKitchenSettings()
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const newOrders = useOrders({ status: "NEW" })
   const cooking = useOrders({ status: "PROCESSING" })
   const isLoading = newOrders.isLoading || cooking.isLoading
@@ -87,7 +83,7 @@ export function KitchenBoard() {
   const active = [...(newOrders.data ?? []), ...(cooking.data ?? [])].sort((a, b) => orderTime(a) - orderTime(b))
   const dineInCount = active.filter(isDineIn).length
   const visible = active.filter((o) => filter === "all" || (filter === "dine-in") === isDineIn(o))
-  const lateCount = now ? active.filter((o) => now - orderTime(o) >= LATE_MIN * 60_000).length : 0
+  const lateCount = now ? active.filter((o) => now - orderTime(o) >= settings.lateMin * 60_000).length : 0
 
   // What the line has to cook right now, biggest first.
   const totals = new Map<string, number>()
@@ -159,9 +155,11 @@ export function KitchenBoard() {
   return (
     <div className={cn("flex h-dvh flex-col gap-3 overflow-hidden bg-muted p-3 text-foreground dark:bg-background", theme === "dark" && "dark")}>
       <header className="flex shrink-0 items-center gap-2">
-        <BarButton asLink="/order" label="Back to orders">
-          <ArrowLeft className="size-5" />
-        </BarButton>
+        {settings.showBackButton && (
+          <BarButton asLink="/order" label="Back to orders">
+            <ArrowLeft className="size-5" />
+          </BarButton>
+        )}
 
         <div className="flex overflow-hidden rounded-lg border border-border bg-card" role="radiogroup" aria-label="Order type">
           {filters.map((f) => (
@@ -187,11 +185,13 @@ export function KitchenBoard() {
           </span>
         )}
 
-        <div className="ml-4 hidden items-center gap-4 text-sm text-muted-foreground xl:flex" aria-label="Colour key">
-          <Legend urgency="ok" label={`Under ${WARN_MIN}m`} />
-          <Legend urgency="warn" label={`${WARN_MIN}–${LATE_MIN}m`} />
-          <Legend urgency="late" label={`${LATE_MIN}m+`} />
-        </div>
+        {settings.showLegend && (
+          <div className="ml-4 hidden items-center gap-4 text-sm text-muted-foreground xl:flex" aria-label="Colour key">
+            <Legend urgency="ok" label={`Under ${settings.warnMin}m`} />
+            <Legend urgency="warn" label={`${settings.warnMin}–${settings.lateMin}m`} />
+            <Legend urgency="late" label={`${settings.lateMin}m+`} />
+          </div>
+        )}
 
         <div className="ml-auto flex items-center gap-3">
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -207,21 +207,24 @@ export function KitchenBoard() {
           <BarButton onClick={toggleSound} label={soundOn ? "Mute new-order chime" : "Turn on new-order chime"} active={soundOn}>
             {soundOn ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}
           </BarButton>
+          <BarButton onClick={() => setSettingsOpen(true)} label="Display settings">
+            <Settings className="size-5" />
+          </BarButton>
         </div>
       </header>
 
       <main className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <Lane title="New" icon={Inbox} orders={visible.filter((o) => o.status === "NEW")} empty="No new orders" loading={isLoading || now === null}>
-          {(order) => <KitchenTicket key={order.id} order={order} now={now!} highlighted={highlighted} fresh={fresh.has(order.id)} />}
+          {(order) => <KitchenTicket key={order.id} order={order} now={now!} highlighted={highlighted} fresh={fresh.has(order.id)} settings={settings} />}
         </Lane>
         <Lane title="Cooking" icon={Flame} orders={visible.filter((o) => o.status === "PROCESSING")} empty="Nothing on the stove" loading={isLoading || now === null}>
-          {(order) => <KitchenTicket key={order.id} order={order} now={now!} highlighted={highlighted} fresh={fresh.has(order.id)} />}
+          {(order) => <KitchenTicket key={order.id} order={order} now={now!} highlighted={highlighted} fresh={fresh.has(order.id)} settings={settings} />}
         </Lane>
       </main>
 
       <footer className="flex shrink-0 items-center gap-2">
         <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto" aria-label="Items to cook">
-          {itemTotals.map(([name, qty]) => (
+          {settings.showItemBar && itemTotals.map(([name, qty]) => (
             <button
               key={name}
               type="button"
@@ -242,6 +245,13 @@ export function KitchenBoard() {
           {isFullscreen ? <Minimize className="size-5" /> : <Maximize className="size-5" />}
         </BarButton>
       </footer>
+      <KitchenSettingsSheet
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        settings={settings}
+        onSave={saveSettings}
+        dark={theme === "dark"}
+      />
       <Toaster position="top-center" />
     </div>
   )

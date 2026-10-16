@@ -8,10 +8,7 @@ import { PermissionGuard } from "@/components/guards"
 import { PERMISSIONS } from "@/constants/permissions"
 import { useAdvanceOrder } from "@/features/order/hooks/use-orders"
 import type { Order } from "@/features/order/types"
-
-/** Minutes after which a ticket turns amber, then red. */
-export const WARN_MIN = 8
-export const LATE_MIN = 15
+import type { KitchenSettings } from "../hooks/use-kitchen-settings"
 
 export type Urgency = "ok" | "warn" | "late"
 
@@ -21,8 +18,8 @@ export function orderTime(order: Order) {
 
 export const isDineIn = (order: Order) => !!order.tableId
 
-export function urgencyOf(minutes: number): Urgency {
-  return minutes >= LATE_MIN ? "late" : minutes >= WARN_MIN ? "warn" : "ok"
+export function urgencyOf(minutes: number, { warnMin, lateMin }: KitchenSettings): Urgency {
+  return minutes >= lateMin ? "late" : minutes >= warnMin ? "warn" : "ok"
 }
 
 export const URGENCY_STYLES: Record<Urgency, string> = {
@@ -36,15 +33,17 @@ export function KitchenTicket({
   now,
   highlighted,
   fresh,
+  settings,
 }: {
   order: Order
   now: number
   /** Menu names picked in the bottom item bar. */
   highlighted: Set<string>
   fresh: boolean
+  settings: KitchenSettings
 }) {
   const minutes = Math.max(0, Math.floor((now - orderTime(order)) / 60_000))
-  const urgency = urgencyOf(minutes)
+  const urgency = urgencyOf(minutes, settings)
   const dineIn = isDineIn(order)
   const TypeIcon = dineIn ? UtensilsCrossed : ShoppingBag
   const title = dineIn ? order.tableName ?? "Table" : order.customerName || "Dine-out"
@@ -94,24 +93,18 @@ export function KitchenTicket({
         })}
       </ul>
 
-      {order.note && (
-        <p className="border-t border-border bg-warning/15 px-4 py-2.5 text-base">
-          <span className="font-semibold">Note:</span> {order.note}
-        </p>
-      )}
-
       <PermissionGuard permissions={PERMISSIONS.ORDER_UPDATE}>
-        <AdvanceButton order={order} />
+        <AdvanceButton order={order} settings={settings} />
       </PermissionGuard>
     </article>
   )
 }
 
 /**
- * Start is one tap. Finishing is two taps (the second within 3s), because a
- * finished order leaves the board and, for takeout, records the payment.
+ * Start is one tap. Finishing is two taps (the second within 3s) unless turned
+ * off, because a finished order leaves the board and, for takeout, records the payment.
  */
-function AdvanceButton({ order }: { order: Order }) {
+function AdvanceButton({ order, settings }: { order: Order; settings: KitchenSettings }) {
   const { step, advance, isPending } = useAdvanceOrder(order)
   const [armed, setArmed] = useState(false)
 
@@ -121,11 +114,12 @@ function AdvanceButton({ order }: { order: Order }) {
     return () => clearTimeout(t)
   }, [armed])
 
-  if (!step) return null
+  const shown = { start: settings.showStart, serve: settings.showServe, complete: settings.showComplete }
+  if (!step || !shown[step]) return null
   const finishing = step !== "start"
 
   function onClick() {
-    if (finishing && !armed) {
+    if (finishing && settings.confirmFinish && !armed) {
       setArmed(true)
       return
     }

@@ -87,12 +87,12 @@ export function useSubmitOrder() {
   return useMutation<
     SessionOrder,
     GuestApiError,
-    { lines: SubmitOrderLine[]; note?: string; idempotencyKey: string }
+    { lines: SubmitOrderLine[]; idempotencyKey: string }
   >({
-    mutationFn: ({ lines, note, idempotencyKey }) =>
+    mutationFn: ({ lines, idempotencyKey }) =>
       client.post(
         `/public/sessions/${guest.sessionId}/orders`,
-        { lines, note: note || undefined },
+        { lines },
         { headers: { "Idempotency-Key": idempotencyKey } },
       ),
     onSettled: invalidate,

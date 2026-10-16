@@ -40,7 +40,7 @@ export function PosDashboard() {
   const { data: sessions = [] } = useActiveSessions()
   const { mutateAsync: createOrder, isPending } = useCreateOrder()
 
-  const { items, addItem, updateQuantity, clear, total, itemCount } = useCart()
+  const { items, addItem, updateQuantity, updateNote, clear, total, itemCount } = useCart()
   const { tax, service, totalPayment } = usePaymentCalculation(total)
 
   const [search, setSearch] = useState("")
@@ -87,7 +87,7 @@ export function PosDashboard() {
         customerName: customerName.trim() || undefined,
         // Dine-in is paid when the table's bill is settled.
         paymentMethod: orderType === "takeout" ? paymentMethod : undefined,
-        items: items.map((i) => ({ menuId: i.menuId, quantity: i.quantity })),
+        items: items.map((i) => ({ menuId: i.menuId, quantity: i.quantity, note: i.note?.trim() || undefined })),
       })
       toast.success(
         orderType === "dine_in" ? `Sent to kitchen · added to ${tableName}'s bill` : "Takeout order sent to kitchen",
@@ -177,31 +177,40 @@ export function PosDashboard() {
             </div>
           ) : (
             items.map((item) => (
-              <div key={item.menuId} className="flex items-center justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{item.name}</p>
-                  <p className="text-xs text-muted-foreground tabular-nums">{formatIdr(item.price)}</p>
+              <div key={item.menuId} className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{item.name}</p>
+                    <p className="text-xs text-muted-foreground tabular-nums">{formatIdr(item.price)}</p>
+                  </div>
+                  <div className="flex items-center gap-1 rounded-md border p-0.5">
+                    <button
+                      type="button"
+                      aria-label={`Decrease ${item.name}`}
+                      onClick={() => updateQuantity(item.menuId, item.quantity - 1)}
+                      className="grid size-7 place-items-center rounded hover:bg-muted"
+                    >
+                      <Minus className="size-3" />
+                    </button>
+                    <span className="w-5 text-center text-sm tabular-nums">{item.quantity}</span>
+                    <button
+                      type="button"
+                      aria-label={`Increase ${item.name}`}
+                      onClick={() => updateQuantity(item.menuId, item.quantity + 1)}
+                      className="grid size-7 place-items-center rounded hover:bg-muted"
+                    >
+                      <Plus className="size-3" />
+                    </button>
+                  </div>
+                  <span className="w-24 text-right text-sm tabular-nums">{formatIdr(item.price * item.quantity)}</span>
                 </div>
-                <div className="flex items-center gap-1 rounded-md border p-0.5">
-                  <button
-                    type="button"
-                    aria-label={`Decrease ${item.name}`}
-                    onClick={() => updateQuantity(item.menuId, item.quantity - 1)}
-                    className="grid size-7 place-items-center rounded hover:bg-muted"
-                  >
-                    <Minus className="size-3" />
-                  </button>
-                  <span className="w-5 text-center text-sm tabular-nums">{item.quantity}</span>
-                  <button
-                    type="button"
-                    aria-label={`Increase ${item.name}`}
-                    onClick={() => updateQuantity(item.menuId, item.quantity + 1)}
-                    className="grid size-7 place-items-center rounded hover:bg-muted"
-                  >
-                    <Plus className="size-3" />
-                  </button>
-                </div>
-                <span className="w-24 text-right text-sm tabular-nums">{formatIdr(item.price * item.quantity)}</span>
+                <input
+                  value={item.note ?? ""}
+                  onChange={(e) => updateNote(item.menuId, e.target.value.slice(0, 200))}
+                  placeholder="Note for kitchen (optional)"
+                  aria-label={`Note for ${item.name}`}
+                  className="h-8 w-full rounded-md border bg-background px-2.5 text-xs outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+                />
               </div>
             ))
           )}

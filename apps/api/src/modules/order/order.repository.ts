@@ -86,7 +86,6 @@ export class OrderRepository {
         totalPrice: orders.totalPrice,
         paymentMethod: orders.paymentMethod,
         sessionId: orders.sessionId,
-        note: orders.note,
         submittedAt: orders.submittedAt,
         createdAt: orders.createdAt,
         customerName: customers.name,
@@ -126,7 +125,6 @@ export class OrderRepository {
         totalPrice: orders.totalPrice,
         paymentMethod: orders.paymentMethod,
         sessionId: orders.sessionId,
-        note: orders.note,
         submittedAt: orders.submittedAt,
         createdAt: orders.createdAt,
         customerName: customers.name,
@@ -177,7 +175,6 @@ export class OrderRepository {
         totalPrice: orders.totalPrice,
         paymentMethod: orders.paymentMethod,
         sessionId: orders.sessionId,
-        note: orders.note,
         submittedAt: orders.submittedAt,
         createdAt: orders.createdAt,
         customerName: customers.name,
@@ -223,7 +220,6 @@ export class OrderRepository {
         totalPrice: orders.totalPrice,
         paymentMethod: orders.paymentMethod,
         sessionId: orders.sessionId,
-        note: orders.note,
         submittedAt: orders.submittedAt,
         createdAt: orders.createdAt,
         customerName: customers.name,
@@ -308,6 +304,7 @@ export class OrderRepository {
         menuId: item.menuId,
         quantity: item.quantity,
         price: item.price,
+        note: item.note || null,
       }));
       await tx.insert(orderItems).values(itemRows);
 

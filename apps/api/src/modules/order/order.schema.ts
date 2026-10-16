@@ -13,6 +13,7 @@ export const orderTypeEnum = z.enum(["DINE_IN", "DINE_OUT"]);
 export const orderItemInputSchema = z.object({
   menuId: z.string().uuid(),
   quantity: z.number().int().min(1),
+  note: z.string().trim().max(200).optional(),
 });
 
 export const createOrderSchema = z.object({

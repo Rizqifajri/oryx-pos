@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
-import { ImageIcon, Loader2, ShoppingBag } from "lucide-react"
+import { ImageIcon, Loader2, NotebookPen, Plus, ShoppingBag } from "lucide-react"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -41,7 +41,7 @@ export function CartPage() {
 
   // One key per cart content: a retry of the same cart (double tap, timeout)
   // reuses it so the server creates a single order; any edit gets a new key.
-  const signature = JSON.stringify([cart.lines.map((l) => [l.lineId, l.quantity, l.unitPrice]), cart.note])
+  const signature = JSON.stringify([cart.lines.map((l) => [l.lineId, l.quantity, l.unitPrice])])
   const [submitKey, setSubmitKey] = useState(() => ({ signature, key: newIdempotencyKey() }))
   if (submitKey.signature !== signature) {
     setSubmitKey({ signature, key: newIdempotencyKey() })
@@ -56,7 +56,6 @@ export function CartPage() {
     submit.mutate(
       {
         idempotencyKey: submitKey.key,
-        note: cart.note.trim(),
         lines: cart.lines.map((l) => ({
           menuId: l.menuId,
           quantity: l.quantity,
@@ -149,12 +148,15 @@ export function CartPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[14px] leading-[19px] font-bold">{line.name}</p>
-                  {line.note && (
-                    <p className="text-[12px] leading-[16px] text-pm-muted italic">“{line.note}”</p>
-                  )}
                   <p className="text-[12px] leading-[16px] text-pm-muted tabular-nums">
                     {formatRupiah(line.unitPrice)} / porsi
                   </p>
+                  <LineNote
+                    key={line.lineId}
+                    name={line.name}
+                    note={line.note}
+                    onSave={(note) => cart.setLineNote(line.lineId, note)}
+                  />
                   {issue === "unavailable" && (
                     <p className="mt-1 text-[12px] font-semibold text-pm-danger">
                       Menu ini sudah habis.{" "}
@@ -190,17 +192,6 @@ export function CartPage() {
         <Link href={basePath} className="block text-center text-[12px] font-bold text-pm-ink underline underline-offset-4">
           + Tambah menu lain
         </Link>
-
-        <label className="block rounded-[14px] bg-pm-surface p-3 shadow-pm-card">
-          <span className="text-[12px] font-semibold">Catatan pesanan (opsional)</span>
-          <textarea
-            value={cart.note}
-            onChange={(e) => cart.setNote(e.target.value.slice(0, 300))}
-            rows={2}
-            placeholder="Contoh: sajikan bersamaan"
-            className="mt-1.5 w-full resize-none rounded-[12px] bg-pm-surface-muted px-3 py-2 text-[13px] outline-none placeholder:text-pm-subtle"
-          />
-        </label>
 
         <section aria-label="Ringkasan" className="space-y-1.5 rounded-[14px] bg-pm-surface p-3 text-[13px] shadow-pm-card">
           <Row label="Subtotal" value={formatRupiah(cart.subtotal)} />
@@ -280,5 +271,76 @@ export function Row({
       <span>{label}</span>
       <span className="tabular-nums">{value}</span>
     </div>
+  )
+}
+
+/** A cart line's kitchen note, added or edited in place. */
+function LineNote({ name, note, onSave }: { name: string; note: string; onSave: (note: string) => void }) {
+  const [draft, setDraft] = useState<string | null>(null)
+
+  if (draft === null) {
+    return note ? (
+      <button
+        type="button"
+        onClick={() => setDraft(note)}
+        aria-label={`Ubah catatan untuk ${name}`}
+        className="mt-1.5 flex w-full items-start gap-1.5 rounded-[10px] bg-pm-surface-muted px-2.5 py-1.5 text-left text-[12px] leading-[16px]"
+      >
+        <NotebookPen className="mt-px size-3.5 shrink-0 text-pm-muted" aria-hidden />
+        <span className="min-w-0 flex-1 break-words">{note}</span>
+        <span className="shrink-0 font-bold underline underline-offset-2">Ubah</span>
+      </button>
+    ) : (
+      <button
+        type="button"
+        onClick={() => setDraft("")}
+        className="mt-1.5 flex items-center gap-1 text-[12px] leading-[16px] font-bold text-pm-ink"
+      >
+        <Plus className="size-3.5" aria-hidden />
+        Tambah catatan
+      </button>
+    )
+  }
+
+  return (
+    <form
+      className="mt-1.5 space-y-1.5"
+      onSubmit={(e) => {
+        e.preventDefault()
+        onSave(draft)
+        setDraft(null)
+      }}
+    >
+      <textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value.slice(0, 200))}
+        rows={2}
+        autoFocus
+        aria-label={`Catatan untuk ${name}`}
+        placeholder="Contoh: tidak pedas, tanpa bawang"
+        className="w-full resize-none rounded-[10px] bg-pm-surface-muted px-2.5 py-1.5 text-[12px] leading-[16px] outline-none placeholder:text-pm-subtle"
+      />
+      <div className="flex items-center gap-2">
+        <button type="submit" className="h-8 rounded-full bg-pm-ink px-3.5 text-[12px] font-bold text-white">
+          Simpan
+        </button>
+        <button type="button" onClick={() => setDraft(null)} className="h-8 px-2 text-[12px] font-bold text-pm-muted">
+          Batal
+        </button>
+        {note && (
+          <button
+            type="button"
+            onClick={() => {
+              onSave("")
+              setDraft(null)
+            }}
+            className="ml-auto h-8 px-2 text-[12px] font-bold text-pm-danger"
+          >
+            Hapus catatan
+          </button>
+        )}
+        <span className="text-[11px] text-pm-subtle tabular-nums last:ml-auto">{draft.length}/200</span>
+      </div>
+    </form>
   )
 }
