@@ -20,9 +20,15 @@ export class GuestSessionGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<RequestWithGuest>();
     const header = request.headers["x-guest-token"];
+    const authHeader = request.headers["authorization"];
+    const bearerToken =
+      typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+        ? authHeader.slice(7)
+        : null;
     const token =
       (typeof header === "string" && header) ||
-      (typeof request.query.token === "string" && request.query.token);
+      (typeof request.query.token === "string" && request.query.token) ||
+      bearerToken;
 
     if (!token) {
       throw new AppError("Sesi meja diperlukan", 401, {

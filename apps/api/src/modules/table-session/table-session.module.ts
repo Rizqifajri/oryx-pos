@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { RepositoriesModule } from "../../database/repositories.module";
+import { FeedbackModule } from "../feedback/feedback.module";
 import { BillService } from "./bill.service";
 import { PublicOrderController } from "./public-order.controller";
 import { PublicOrderService } from "./public-order.service";
@@ -12,7 +13,7 @@ import { StaffSessionService } from "./staff-session.service";
 
 /** QR table ordering: guest sessions, table bills and service requests. */
 @Module({
-  imports: [RepositoriesModule],
+  imports: [RepositoriesModule, FeedbackModule],
   controllers: [
     PublicOrderController,
     StaffSessionController,
