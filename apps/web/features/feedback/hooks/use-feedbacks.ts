@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { useGuest } from "@/features/table-order/session-context";
+import type { GuestApiError } from "@/features/table-order/api";
 import type {
   FeedbackSummary,
   PaginatedFeedbacks,
@@ -44,16 +46,15 @@ export function useFeedbackSummary(tenantId?: string) {
 
 /**
  * Hook for guest ordering table to submit feedback.
- * Uses guest token in Authorization header.
+ * Uses guest client with X-Guest-Token from session context so it never triggers staff 401 redirect to /login.
  */
 export function useSubmitGuestFeedback() {
   const qc = useQueryClient();
-  return useMutation({
+  const { client, guest } = useGuest();
+
+  return useMutation<unknown, GuestApiError, SubmitFeedbackPayload>({
     mutationFn: (payload: SubmitFeedbackPayload) => {
-      const token = typeof window !== "undefined" ? localStorage.getItem("guest_token") : null;
-      return api.post("/feedbacks/public", payload, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
+      return client.post(`/public/sessions/${guest.sessionId}/feedbacks`, payload);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["feedbacks"] });

@@ -19,6 +19,11 @@ import { Public } from "../../common/decorators/public.decorator";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { SessionEventsService } from "../../common/realtime/session-events.service";
 import type { GuestContext } from "../../common/utils/guest-token";
+import {
+  type CreateFeedbackInput,
+  createFeedbackSchema,
+} from "../feedback/feedback.schema";
+import { FeedbackService } from "../feedback/feedback.service";
 import { PublicOrderService } from "./public-order.service";
 import {
   type CreateBillPaymentInput,
@@ -44,6 +49,7 @@ export class PublicOrderController {
   constructor(
     private readonly service: PublicOrderService,
     private readonly events: SessionEventsService,
+    private readonly feedbackService: FeedbackService,
   ) {}
 
   @Post("tables/:qrToken/session")
@@ -203,5 +209,22 @@ export class PublicOrderController {
       map(() => ({ data: { type: "ping" } })),
     );
     return merge(updates, heartbeat);
+  }
+
+  @Post("sessions/:sessionId/feedbacks")
+  @UseGuards(GuestSessionGuard)
+  async submitFeedback(
+    @CurrentGuest() guest: GuestContext,
+    @Body(new ZodValidationPipe(createFeedbackSchema)) body: CreateFeedbackInput,
+  ) {
+    const data = await this.feedbackService.createFeedback(
+      {
+        ...body,
+        sessionId: guest.sessionId,
+        tableId: guest.tableId,
+      },
+      guest.tenantId,
+    );
+    return { success: true, data, message: "Terima kasih atas ulasan Anda!" };
   }
 }
