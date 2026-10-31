@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Check, Eye, EyeOff, X } from "lucide-react"
+import { Check, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -31,6 +31,7 @@ import {
   type RegisterInput,
 } from "../schemas/register"
 import { useRegister } from "../hooks/use-auth"
+import { PasswordInput } from "../components/password-input"
 
 const STEPS = [
   { title: "Account", description: "Tell us about you and your business." },
@@ -41,7 +42,6 @@ const STEPS = [
 export function RegisterForm() {
   const { mutate: registerUser, isPending, error } = useRegister()
   const [step, setStep] = useState(0)
-  const [showPassword, setShowPassword] = useState(false)
 
   const {
     register,
@@ -245,25 +245,13 @@ export function RegisterForm() {
               <FieldGroup>
                 <Field data-invalid={!!errors.password}>
                   <FieldLabel htmlFor="password">Password</FieldLabel>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      autoComplete="new-password"
-                      className="pr-9"
-                      aria-invalid={!!errors.password}
-                      aria-describedby="password-rules"
-                      {...register("password")}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      aria-label={showPassword ? "Hide password" : "Show password"}
-                      className="absolute inset-y-0 right-0 flex w-9 cursor-pointer items-center justify-center text-muted-foreground hover:text-foreground"
-                    >
-                      {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                    </button>
-                  </div>
+                  <PasswordInput
+                    id="password"
+                    autoComplete="new-password"
+                    aria-invalid={!!errors.password}
+                    aria-describedby="password-rules"
+                    {...register("password")}
+                  />
                   <ul id="password-rules" className="grid gap-1 text-xs sm:grid-cols-2">
                     {PASSWORD_RULES.map((rule) => {
                       const met = rule.test(password)
@@ -291,9 +279,8 @@ export function RegisterForm() {
 
                 <Field data-invalid={!!errors.confirmPassword}>
                   <FieldLabel htmlFor="confirmPassword">Confirm password</FieldLabel>
-                  <Input
+                  <PasswordInput
                     id="confirmPassword"
-                    type={showPassword ? "text" : "password"}
                     autoComplete="new-password"
                     aria-invalid={!!errors.confirmPassword}
                     {...register("confirmPassword")}
