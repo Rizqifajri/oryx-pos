@@ -85,7 +85,16 @@ export class AuthService {
 
     return await this.db.transaction(async (tx) => {
       const tenant = await this.authRepo.createTenant(
-        { name: input.tenantName, slug },
+        {
+          name: input.tenantName,
+          slug,
+          address: input.address,
+          businessType: input.businessType,
+          country: input.country,
+          province: input.province,
+          city: input.city,
+          plan: input.plan,
+        },
         tx,
       );
 
@@ -120,6 +129,7 @@ export class AuthService {
           roleId: role.id,
           name: input.name,
           email: input.email,
+          phone: input.phone,
           password: hashedPassword,
         },
         tx,

@@ -10,6 +10,7 @@ export const users = pgTable("users", {
     .notNull(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
+  phone: text("phone"),
   password: text("password").notNull(),
   refreshToken: text("refresh_token"),
   refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
