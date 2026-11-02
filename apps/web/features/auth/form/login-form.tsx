@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form"
 import { Suspense } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useSearchParams } from "next/navigation"
+import { CircleAlert, CircleCheck } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,6 +18,7 @@ import {
 
 import { loginSchema, type LoginInput } from "../schemas/login"
 import { useLogin } from "../hooks/use-auth"
+import { PasswordInput } from "../components/password-input"
 
 function LoginFormInner() {
   const searchParams = useSearchParams()
@@ -36,15 +38,17 @@ function LoginFormInner() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate>
-      <FieldSet disabled={isPending}>
-        {justRegistered && (
-          <p role="status" className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-            Account created — sign in to continue.
+      <FieldSet disabled={isPending} className="gap-6">
+        {justRegistered && !error && (
+          <p role="status" className="flex items-start gap-2 border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
+            <CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
+            Account created. Sign in to continue.
           </p>
         )}
 
         {error && (
-          <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+          <p role="alert" className="flex items-start gap-2 border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
             {error.statusCode === 401 ? "Wrong email or password." : error.message}
           </p>
         )}
@@ -65,11 +69,9 @@ function LoginFormInner() {
 
           <Field data-invalid={!!errors.password}>
             <FieldLabel htmlFor="password">Password</FieldLabel>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               autoComplete="current-password"
-              placeholder="••••••••"
               aria-invalid={!!errors.password}
               {...register("password")}
             />
@@ -80,21 +82,11 @@ function LoginFormInner() {
         <Button
           type="submit"
           size="lg"
-          className="mt-6 w-full bg-black text-white hover:bg-black/90 cursor-pointer"
+          className="w-full cursor-pointer bg-foreground text-background hover:bg-foreground/90"
           disabled={isPending}
         >
           {isPending ? "Signing in…" : "Sign in"}
         </Button>
-
-        <p className="mt-4 text-center text-xs text-zinc-500">
-          Don’t have an account?{" "}
-          <a
-            href="/register"
-            className="font-medium text-black hover:underline"
-          >
-            Sign up
-          </a>
-        </p>
       </FieldSet>
     </form>
   )

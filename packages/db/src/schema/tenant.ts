@@ -8,5 +8,12 @@ export const tenants = pgTable("tenants", {
   tagline: text("tagline"),
   // When false the public menu stays browsable but guests cannot order.
   isOpen: boolean("is_open").notNull().default(true),
+  // Business profile captured at registration; nullable for pre-existing tenants.
+  address: text("address"),
+  businessType: text("business_type"),
+  country: text("country"), // ISO 3166-1 alpha-2
+  province: text("province"),
+  city: text("city"),
+  plan: text("plan"),
   createdAt: date("created_at").notNull().defaultNow(),
 });

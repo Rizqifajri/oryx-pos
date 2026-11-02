@@ -43,7 +43,19 @@ export class AuthRepository {
 
   // The create* helpers below run inside register()'s transaction, so `tx` is
   // required rather than defaulted.
-  async createTenant(data: { name: string; slug: string }, tx: DbOrTx) {
+  async createTenant(
+    data: {
+      name: string;
+      slug: string;
+      address: string;
+      businessType: string;
+      country: string;
+      province: string;
+      city: string;
+      plan: string;
+    },
+    tx: DbOrTx,
+  ) {
     const [tenant] = await tx.insert(tenants).values(data).returning();
     if (!tenant) throw new Error("Failed to create tenant");
     return tenant;
@@ -76,6 +88,7 @@ export class AuthRepository {
       roleId: string;
       name: string;
       email: string;
+      phone: string;
       password: string;
     },
     tx: DbOrTx,
