@@ -36,6 +36,13 @@
       "when": 1790008126508,
       "tag": "0004_nice_vargas",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793502606905,
+      "tag": "0005_silly_lady_mastermind",
+      "breakpoints": true
     }
   ]
 }
